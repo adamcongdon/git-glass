@@ -1,0 +1,19 @@
+- generic [ref=e1]:
+  - tablist "Application views" [ref=e2]:
+    - tab "Feedback" [active] [selected] [ref=e3] [cursor=pointer]
+    - tab "Repos" [ref=e4] [cursor=pointer]
+    - tab "Leaderboard" [ref=e5] [cursor=pointer]
+    - button "Open settings" [ref=e6] [cursor=pointer]:
+      - img [ref=e7]
+  - main [ref=e24]:
+    - generic [ref=e25]:
+      - paragraph [ref=e26]: Install Glass as an app for quick access.
+      - button "Install" [ref=e27] [cursor=pointer]
+    - generic [ref=e28]:
+      - generic [ref=e29]: Feedback
+      - textbox "Feedback" [ref=e30]:
+        - /placeholder: Describe the issue or request...
+      - generic [ref=e32]:
+        - text: Drop image here, paste (Ctrl+V), or
+        - generic [ref=e33] [cursor=pointer]: choose a file
+      - button "AI Triage" [disabled] [ref=e35]

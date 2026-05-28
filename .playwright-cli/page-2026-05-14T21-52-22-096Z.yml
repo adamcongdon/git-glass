@@ -1,0 +1,17 @@
+- generic [active] [ref=e1]:
+  - tablist "Application views" [ref=e2]:
+    - tab "Feedback" [ref=e3] [cursor=pointer]
+    - tab "Repos" [ref=e4] [cursor=pointer]
+    - tab "Leaderboard" [selected] [ref=e5] [cursor=pointer]
+    - button "Open settings" [ref=e6] [cursor=pointer]:
+      - img [ref=e7]
+  - tabpanel "Leaderboard" [ref=e10]:
+    - banner [ref=e11]:
+      - heading "Leaderboard" [level=2] [ref=e12]
+      - generic [ref=e13]: Ranked by git activity. Click a window to refresh.
+    - toolbar "Time window" [ref=e14]:
+      - button "7d" [ref=e15] [cursor=pointer]
+      - button "30d" [pressed] [ref=e16] [cursor=pointer]
+      - button "90d" [ref=e17] [cursor=pointer]
+      - button "All" [ref=e18] [cursor=pointer]
+    - status "Loading" [ref=e20]: Loading…

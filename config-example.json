@@ -1,0 +1,12 @@
+{
+  "scanPaths": [
+    "/Users/yourname/dev",
+    "/Users/yourname/projects"
+  ],
+  "scanDepth": 3,
+  "port": 7777,
+  "claudeApiKey": "sk-ant-...",
+  "github": {
+    "token": "ghp_..."
+  }
+}
