@@ -1442,6 +1442,19 @@
           <button id="add-gitlab-token">+ Add token</button>
         </div>
 
+        <div class="config-section" id="config-updates-section">
+          <h3>Updates</h3>
+          <div style="font-size:13px;margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap;">
+            <span id="config-version-current" style="color:var(--muted);">Checking…</span>
+            <span id="config-version-status"></span>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+            <input type="checkbox" id="config-auto-update" />
+            Auto-update on startup
+          </label>
+          <p class="config-hint">Pulls the latest release and restarts when a newer version is available</p>
+        </div>
+
         <div class="btn-row">
           <button class="btn btn-green" id="config-save-btn">Save</button>
         </div>
@@ -1479,7 +1492,7 @@
         Show Ignored
       </button>
       <div class="glass-toolbar-overflow" id="glass-toolbar-overflow">
-        <button class="glass-overflow-btn" id="glass-toolbar-overflow-btn" aria-label="More server actions" aria-haspopup="true" aria-expanded="false" title="More actions">⋯</button>
+        <button class="glass-overflow-btn" id="glass-toolbar-overflow-btn" aria-label="More server actions" aria-haspopup="true" aria-expanded="false" title="More actions" style="position:relative;">⋯<span id="glass-update-dot" style="display:none;width:7px;height:7px;background:var(--accent-green);border-radius:50%;position:absolute;top:3px;right:3px;"></span></button>
         <div class="glass-overflow-menu" id="glass-toolbar-overflow-menu" role="menu">
           <button data-action="check-updates" role="menuitem">Check for Updates</button>
           <button data-action="restart" role="menuitem">Restart Server</button>
@@ -2078,9 +2091,10 @@
     // Config panel — wired to both gear-btn (legacy inside view-feedback) and glass-settings-btn (tabbar)
     async function openConfig() {
       configOverlay.classList.add('open');
-      const [cfgResp, accountsResp] = await Promise.allSettled([
+      const [cfgResp, accountsResp, versionResp] = await Promise.allSettled([
         fetch('/api/config'),
         fetch('/api/gh-accounts'),
+        fetch('/api/version'),
       ]);
       if (accountsResp.status === 'fulfilled' && accountsResp.value.ok) {
         ghAccounts = await accountsResp.value.json();
@@ -2088,6 +2102,23 @@
       if (cfgResp.status === 'fulfilled' && cfgResp.value.ok) {
         const cfg = await cfgResp.value.json();
         populateConfigForm(cfg);
+      }
+      if (versionResp.status === 'fulfilled' && versionResp.value.ok) {
+        const v = await versionResp.value.json();
+        const vCurrent = document.getElementById('config-version-current');
+        const vStatus = document.getElementById('config-version-status');
+        if (vCurrent) vCurrent.textContent = 'Version: ' + v.current;
+        if (vStatus) {
+          if (v.updateAvailable && v.latest) {
+            vStatus.textContent = '● Update available: ' + v.latest;
+            vStatus.style.color = 'var(--accent-green)';
+          } else if (v.latest) {
+            vStatus.textContent = '✓ Up to date';
+            vStatus.style.color = 'var(--muted)';
+          } else {
+            vStatus.textContent = '';
+          }
+        }
       }
     }
 
@@ -2190,6 +2221,9 @@
 
       gitlabTokensList.innerHTML = '';
       (cfg.gitlab?.hosts ?? []).forEach(host => addGitlabTokenRow(host, true));
+
+      const autoUpdateEl = document.getElementById('config-auto-update');
+      if (autoUpdateEl) autoUpdateEl.checked = !!(cfg.updates?.autoUpdate);
     }
 
     function addOwnerAccountRow(owner = '', account = '') {
@@ -2326,6 +2360,7 @@
         gitlab: {
           tokens: gitlabTokens,
         },
+        updates: { autoUpdate: !!(document.getElementById('config-auto-update')?.checked) },
       };
 
       configSaveBtn.disabled = true;
@@ -3070,6 +3105,17 @@
         }
       });
     })();
+
+    async function glassCheckUpdateBadge() {
+      try {
+        const resp = await fetch('/api/version');
+        if (!resp.ok) return;
+        const v = await resp.json();
+        const dot = document.getElementById('glass-update-dot');
+        if (dot) dot.style.display = v.updateAvailable ? 'inline-block' : 'none';
+      } catch {}
+    }
+    glassCheckUpdateBadge();
 
     // ── Auto-refresh ─────────────────────────────────────────────────────────
 

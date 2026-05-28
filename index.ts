@@ -3,6 +3,7 @@ import { z } from "zod";
 import { join, resolve as resolvePath } from "path";
 import { readFile } from "fs/promises";
 import { readConfig, writeConfig, redactConfig } from "./lib/config";
+import { getVersionInfo } from "./lib/version";
 import { scanRepos, parseRemoteUrl } from "./lib/scanner";
 import { triageFeedback, type AiConfig } from "./lib/triage";
 import { AI_PROVIDERS } from "./lib/config";
@@ -647,6 +648,16 @@ app.post("/api/git/ai-triage", async (c) => {
 // be redirected by config changes or path traversal in request bodies.
 const SELF_REPO_DIR = resolvePath(import.meta.dir);
 
+// GET /api/version — current version, latest released version, and updateAvailable flag.
+// Read-only, no mutating side effects, so no sameOriginGuard is needed.
+app.get("/api/version", async (c) => {
+  try {
+    return c.json(await getVersionInfo());
+  } catch {
+    return c.json({ current: "unknown", latest: null, updateAvailable: false, currentCommit: "" });
+  }
+});
+
 // POST /api/update — run `git pull --ff-only` on the dashboard's own repo
 app.post("/api/update", async (c) => {
   const csrf = sameOriginGuard(c);
@@ -704,6 +715,39 @@ app.get("*", () => serveFile(join(PUBLIC_DIR, "app.html"), "text/html"));
 // Start server
 const config = await readConfig();
 const PORT = config.port ?? 7777;
+
+// Startup auto-update: if enabled and a newer release is available, pull and restart.
+// We exit the process on a successful pull and rely on launchd KeepAlive=true to bring
+// the server back on the new commit. On failure we log and continue with the current code.
+if (config.updates?.autoUpdate) {
+  try {
+    const vInfo = await getVersionInfo();
+    if (vInfo.updateAvailable) {
+      const proc = Bun.spawn(["git", "pull", "--ff-only"], {
+        cwd: SELF_REPO_DIR,
+        stdout: "pipe",
+        stderr: "pipe",
+        env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "echo" },
+      });
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => { proc.kill(); reject(new Error("auto-update timed out after 30s")); }, 30_000),
+      );
+      await Promise.race([
+        Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]),
+        timeout,
+      ]);
+      const exitCode = await proc.exited;
+      if (exitCode === 0) {
+        console.log("[auto-update] Pull succeeded — restarting for new version.");
+        process.exit(0); // launchd KeepAlive=true restarts the process
+      } else {
+        console.error("[auto-update] git pull failed (exit", exitCode, ") — starting with current version.");
+      }
+    }
+  } catch (err: any) {
+    console.error("[auto-update] check failed:", err?.message ?? err);
+  }
+}
 
 let server;
 try {
