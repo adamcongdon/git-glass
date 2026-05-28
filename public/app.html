@@ -1385,11 +1385,39 @@
         </div>
 
         <div class="config-section">
-          <h3>AI Account (GitHub Copilot)</h3>
+          <h3>AI Provider</h3>
+          <select id="config-ai-provider">
+            <option value="github-copilot">GitHub Copilot</option>
+            <option value="anthropic">Claude (Anthropic)</option>
+            <option value="openai">OpenAI</option>
+            <option value="grok">Grok (xAI)</option>
+            <option value="openai-compatible">OpenAI-compatible (custom)</option>
+            <option value="local">Local (Ollama / LM Studio)</option>
+          </select>
+        </div>
+
+        <div class="config-section" id="config-copilot-section">
+          <h3>GitHub Copilot Account</h3>
           <select id="config-copilot-account">
             <option value="">— select account —</option>
           </select>
           <p class="config-hint">Account with GitHub Copilot access, used for AI triage</p>
+        </div>
+
+        <div class="config-section" id="config-ai-key-section" hidden>
+          <h3>AI API Key</h3>
+          <input type="password" id="config-ai-key" placeholder="sk-…" autocomplete="off" />
+          <p class="config-hint" id="config-ai-key-hint"></p>
+        </div>
+
+        <div class="config-section" id="config-ai-model-section" hidden>
+          <h3>AI Model <span id="config-ai-model-default" style="font-weight:normal;opacity:.6;font-size:.85em;"></span></h3>
+          <input type="text" id="config-ai-model" placeholder="(uses provider default)" />
+        </div>
+
+        <div class="config-section" id="config-ai-url-section" hidden>
+          <h3>AI Base URL</h3>
+          <input type="text" id="config-ai-url" placeholder="http://localhost:11434/v1" />
         </div>
 
         <div class="config-section">
@@ -1611,6 +1639,16 @@
     const scanPathsList = document.getElementById('scan-paths-list');
     const addScanPathBtn = document.getElementById('add-scan-path');
     const configDepth = document.getElementById('config-depth');
+    const configAiProvider = document.getElementById('config-ai-provider');
+    const configAiKey = document.getElementById('config-ai-key');
+    const configAiKeyHint = document.getElementById('config-ai-key-hint');
+    const configAiModel = document.getElementById('config-ai-model');
+    const configAiModelDefault = document.getElementById('config-ai-model-default');
+    const configAiUrl = document.getElementById('config-ai-url');
+    const configCopilotSection = document.getElementById('config-copilot-section');
+    const configAiKeySection = document.getElementById('config-ai-key-section');
+    const configAiModelSection = document.getElementById('config-ai-model-section');
+    const configAiUrlSection = document.getElementById('config-ai-url-section');
     const configCopilotAccount = document.getElementById('config-copilot-account');
     const configDefaultAccount = document.getElementById('config-default-account');
     const ownerAccountsList = document.getElementById('owner-accounts-list');
@@ -2063,6 +2101,49 @@
 
     document.getElementById('glass-settings-btn').addEventListener('click', openConfig);
 
+    const AI_DEFAULT_MODELS = {
+      'github-copilot': 'claude-haiku-4.5',
+      'anthropic': 'claude-haiku-4-5-20251001',
+      'openai': 'gpt-4o-mini',
+      'grok': 'grok-3-mini-fast',
+      'openai-compatible': '',
+      'local': 'llama3.2',
+    };
+    const AI_DEFAULT_URLS = {
+      'github-copilot': 'https://api.githubcopilot.com',
+      'anthropic': 'https://api.anthropic.com',
+      'openai': 'https://api.openai.com/v1',
+      'grok': 'https://api.x.ai/v1',
+      'openai-compatible': '',
+      'local': 'http://localhost:11434/v1',
+    };
+
+    function updateAiProviderUI(provider, hasKey) {
+      const isCopilot = provider === 'github-copilot';
+      const needsUrl = provider === 'openai-compatible' || provider === 'local';
+
+      configCopilotSection.hidden = !isCopilot;
+      configAiKeySection.hidden = isCopilot;
+      configAiModelSection.hidden = isCopilot;
+      configAiUrlSection.hidden = isCopilot || !needsUrl;
+
+      const def = AI_DEFAULT_MODELS[provider] || '';
+      configAiModelDefault.textContent = def ? `(default: ${def})` : '';
+      configAiModel.placeholder = def || '(required)';
+
+      if (!isCopilot) {
+        configAiKeyHint.textContent = hasKey ? 'Key saved — type to replace, leave blank to keep.' : '';
+        if (needsUrl) {
+          configAiUrl.placeholder = AI_DEFAULT_URLS[provider] || 'https://…/v1';
+        }
+      }
+    }
+
+    configAiProvider.addEventListener('change', () => {
+      updateAiProviderUI(configAiProvider.value, false);
+      configAiKey.value = '';
+    });
+
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && configOverlay.classList.contains('open')) {
         closeConfig();
@@ -2086,6 +2167,14 @@
 
     function populateConfigForm(cfg) {
       configDepth.value = cfg.scanDepth ?? 3;
+
+      const ai = cfg.ai ?? {};
+      const provider = ai.provider || 'github-copilot';
+      configAiProvider.value = provider;
+      configAiModel.value = ai.model || '';
+      configAiUrl.value = ai.baseUrl || '';
+      configAiKey.value = '';
+      updateAiProviderUI(provider, ai.hasKey || false);
 
       const gh = cfg.github ?? {};
       populateAccountSelect(configCopilotAccount, gh.copilotAccount ?? '');
@@ -2215,9 +2304,20 @@
         }
       });
 
+      const aiProvider = configAiProvider.value;
+      const aiUpdate = { provider: aiProvider };
+      // Only send apiKey if the field was touched (non-empty = upsert, we never send key on open)
+      const rawKey = configAiKey.value.trim();
+      if (rawKey) aiUpdate.apiKey = rawKey;
+      const rawModel = configAiModel.value.trim();
+      if (rawModel) aiUpdate.model = rawModel; else aiUpdate.model = '';
+      const rawUrl = configAiUrl.value.trim();
+      if (rawUrl) aiUpdate.baseUrl = rawUrl; else aiUpdate.baseUrl = '';
+
       const updates = {
         scanPaths: paths,
         scanDepth: isNaN(depth) ? 3 : depth,
+        ai: aiUpdate,
         github: {
           copilotAccount: configCopilotAccount.value || undefined,
           defaultAccount: configDefaultAccount.value || undefined,

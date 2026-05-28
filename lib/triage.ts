@@ -1,3 +1,5 @@
+import type { AiProvider } from "./config";
+
 export type IssueType = "bug" | "feature" | "question";
 
 export interface TriageResult {
@@ -9,10 +11,33 @@ export interface TriageResult {
 
 export type RepoCandidate = { name: string; host: string };
 
+export interface AiConfig {
+  provider: AiProvider;
+  apiKey?: string;      // non-copilot providers
+  model?: string;       // overrides per-provider default
+  baseUrl?: string;     // openai-compatible / local
+  copilotToken?: string; // github-copilot: token from gh CLI
+}
+
 const VALID_TYPES: IssueType[] = ["bug", "feature", "question"];
 
-const COPILOT_URL = "https://api.githubcopilot.com/chat/completions";
-const COPILOT_MODEL = "claude-haiku-4.5";
+const DEFAULT_MODELS: Record<AiProvider, string> = {
+  "github-copilot":    "claude-haiku-4.5",
+  "anthropic":         "claude-haiku-4-5-20251001",
+  "openai":            "gpt-4o-mini",
+  "grok":              "grok-3-mini-fast",
+  "openai-compatible": "",
+  "local":             "llama3.2",
+};
+
+const BASE_URLS: Record<AiProvider, string> = {
+  "github-copilot":    "https://api.githubcopilot.com",
+  "anthropic":         "https://api.anthropic.com",
+  "openai":            "https://api.openai.com/v1",
+  "grok":              "https://api.x.ai/v1",
+  "openai-compatible": "",
+  "local":             "http://localhost:11434/v1",
+};
 
 export function buildTriagePrompt(text: string, repos?: RepoCandidate[]): { system: string; user: string } {
   const hasRepos = repos && repos.length > 0;
@@ -43,7 +68,6 @@ Rules:
 
 export function parseTriageResponse(raw: string): TriageResult {
   try {
-    // Strip markdown fences before parsing
     const cleaned = raw.replace(/^```json?\n?|```$/gm, "").trim();
     const parsed = JSON.parse(cleaned);
 
@@ -55,27 +79,21 @@ export function parseTriageResponse(raw: string): TriageResult {
 
     return { title, body, type, suggestedRepo };
   } catch {
-    return {
-      title: "",
-      body: raw,
-      type: "question",
-      suggestedRepo: null,
-    };
+    return { title: "", body: raw, type: "question", suggestedRepo: null };
   }
 }
 
-export async function triageFeedback(
-  text: string,
-  githubToken: string,
-  imageBase64?: string,
+// OpenAI-compatible chat completions (Copilot, OpenAI, Grok, local, custom)
+async function callOpenAiCompatible(
+  token: string,
+  baseUrl: string,
+  model: string,
+  isCopilot: boolean,
+  system: string,
+  user: string,
+  rawBase64?: string,
   imageMimeType?: string,
-  repos?: RepoCandidate[],
-): Promise<TriageResult> {
-  const { system, user } = buildTriagePrompt(text, repos);
-
-  // Strip data URI prefix if present
-  const rawBase64 = imageBase64?.replace(/^data:[^;]+;base64,/, "");
-
+): Promise<string> {
   type ContentPart =
     | { type: "text"; text: string }
     | { type: "image_url"; image_url: { url: string } };
@@ -88,15 +106,17 @@ export async function triageFeedback(
         ]
       : user;
 
-  const response = await fetch(COPILOT_URL, {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+  if (isCopilot) headers["Copilot-Integration-Id"] = "vscode-chat";
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${githubToken}`,
-      "Content-Type": "application/json",
-      "Copilot-Integration-Id": "vscode-chat",
-    },
+    headers,
     body: JSON.stringify({
-      model: COPILOT_MODEL,
+      model,
       max_tokens: rawBase64 ? 1024 : 500,
       messages: [
         { role: "system", content: system },
@@ -111,17 +131,104 @@ export async function triageFeedback(
       const err = await response.json() as { error?: { message?: string } };
       detail = err.error?.message ?? detail;
     } catch {}
-    throw new Error(`Copilot API error ${response.status}: ${detail}`);
+    throw new Error(`AI API error ${response.status}: ${detail}`);
   }
 
-  const data = await response.json() as {
-    choices: Array<{ message: { content: string } }>;
-  };
+  const data = await response.json() as { choices: Array<{ message: { content: string } }> };
+  return data.choices?.[0]?.message?.content ?? "";
+}
 
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) {
-    return { title: "", body: text, type: "question", suggestedRepo: null };
+// Anthropic messages API (different auth header, request shape, and response shape)
+async function callAnthropic(
+  apiKey: string,
+  model: string,
+  system: string,
+  user: string,
+  rawBase64?: string,
+  imageMimeType?: string,
+): Promise<string> {
+  type AnthropicContentPart =
+    | { type: "text"; text: string }
+    | { type: "image"; source: { type: "base64"; media_type: string; data: string } };
+
+  const userContent: string | AnthropicContentPart[] =
+    rawBase64 && imageMimeType
+      ? [
+          { type: "image", source: { type: "base64", media_type: imageMimeType, data: rawBase64 } },
+          { type: "text", text: user },
+        ]
+      : user;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: rawBase64 ? 1024 : 500,
+      system,
+      messages: [{ role: "user", content: userContent }],
+    }),
+  });
+
+  if (!response.ok) {
+    let detail = response.statusText;
+    try {
+      const err = await response.json() as { error?: { message?: string } };
+      detail = err.error?.message ?? detail;
+    } catch {}
+    throw new Error(`Anthropic API error ${response.status}: ${detail}`);
   }
 
+  const data = await response.json() as { content: Array<{ type: string; text: string }> };
+  return data.content?.find((b) => b.type === "text")?.text ?? "";
+}
+
+export async function triageFeedback(
+  text: string,
+  aiConfig: AiConfig,
+  imageBase64?: string,
+  imageMimeType?: string,
+  repos?: RepoCandidate[],
+): Promise<TriageResult> {
+  const { system, user } = buildTriagePrompt(text, repos);
+  const rawBase64 = imageBase64?.replace(/^data:[^;]+;base64,/, "");
+
+  const { provider, model: modelOverride, baseUrl: baseUrlOverride } = aiConfig;
+  const model = modelOverride || DEFAULT_MODELS[provider];
+  const baseUrl = baseUrlOverride || BASE_URLS[provider];
+
+  let content: string;
+
+  if (provider === "anthropic") {
+    if (!aiConfig.apiKey) throw new Error("Anthropic API key not configured — open Settings → AI Provider");
+    content = await callAnthropic(aiConfig.apiKey, model, system, user, rawBase64, imageMimeType);
+  } else {
+    // All other providers use OpenAI-compatible chat completions
+    const token = provider === "github-copilot"
+      ? aiConfig.copilotToken
+      : aiConfig.apiKey;
+
+    if (!token) {
+      if (provider === "github-copilot") {
+        throw new Error("No GitHub Copilot token — open Settings and select a GitHub account with Copilot access");
+      }
+      throw new Error(`No API key configured for provider "${provider}" — open Settings → AI Provider`);
+    }
+
+    if (!baseUrl) {
+      throw new Error(`No base URL configured for provider "${provider}" — open Settings → AI Provider`);
+    }
+    if (!model) {
+      throw new Error(`No model configured for provider "${provider}" — open Settings → AI Provider and set a model`);
+    }
+
+    content = await callOpenAiCompatible(token, baseUrl, model, provider === "github-copilot", system, user, rawBase64, imageMimeType);
+  }
+
+  if (!content) return { title: "", body: text, type: "question", suggestedRepo: null };
   return parseTriageResponse(content);
 }

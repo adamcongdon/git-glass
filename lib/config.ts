@@ -2,10 +2,21 @@ import { z } from "zod";
 import { mkdir, readFile, writeFile, rename } from "fs/promises";
 import { join, dirname, resolve as resolvePath } from "path";
 
+export const AI_PROVIDERS = ["github-copilot", "anthropic", "openai", "grok", "openai-compatible", "local"] as const;
+export type AiProvider = typeof AI_PROVIDERS[number];
+
 export const ConfigSchema = z.object({
   scanPaths: z.array(z.string().min(1)).default([]),
   scanDepth: z.number().int().min(1).max(10).default(3),
   port: z.number().int().default(7777),
+  ai: z
+    .object({
+      provider: z.enum(AI_PROVIDERS).default("github-copilot"),
+      apiKey: z.string().optional(),   // stored at 0600; redacted from GET /api/config
+      model: z.string().optional(),    // overrides the per-provider default
+      baseUrl: z.string().optional(),  // required for openai-compatible; defaults for local
+    })
+    .default({}),
   github: z
     .object({
       copilotAccount: z.string().optional(),   // account with Copilot access (for AI triage)
@@ -28,11 +39,18 @@ export const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>;
 
-// GitHub usernames are fine to expose; GitLab tokens are NOT — only the host list is returned.
+// GitHub usernames + AI provider/model/url are fine to expose.
+// GitLab tokens and AI API keys are NOT — only presence is indicated.
 export type RedactedConfig = {
   scanPaths: string[];
   scanDepth: number;
   port: number;
+  ai: {
+    provider: AiProvider;
+    model?: string;
+    baseUrl?: string;
+    hasKey: boolean;
+  };
   github: {
     copilotAccount?: string;
     defaultAccount?: string;
@@ -61,6 +79,12 @@ export function redactConfig(config: Partial<Config>): RedactedConfig {
     scanPaths: config.scanPaths ?? [],
     scanDepth: config.scanDepth ?? 3,
     port: config.port ?? 7777,
+    ai: {
+      provider: config.ai?.provider ?? "github-copilot",
+      model: config.ai?.model,
+      baseUrl: config.ai?.baseUrl,
+      hasKey: !!(config.ai?.apiKey),
+    },
     github: {
       copilotAccount: config.github?.copilotAccount,
       defaultAccount: config.github?.defaultAccount,
@@ -129,9 +153,22 @@ export async function writeConfig(updates: Partial<Config>): Promise<Config> {
     ? incomingIgnored.map((p) => resolvePath(p))
     : existing.ignoredRepos;
 
+  const incomingAi = updates.ai;
+  const mergedAi = incomingAi !== undefined
+    ? {
+        ...existing.ai,
+        ...incomingAi,
+        // Empty string deletes the stored key; omitted leaves the existing key intact.
+        apiKey: incomingAi.apiKey === ""
+          ? undefined
+          : (incomingAi.apiKey ?? existing.ai.apiKey),
+      }
+    : existing.ai;
+
   const merged = {
     ...existing,
     ...updates,
+    ai: mergedAi,
     github: {
       ...existing.github,
       ...(updates.github ?? {}),
