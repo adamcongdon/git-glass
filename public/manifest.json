@@ -1,6 +1,6 @@
 {
-  "name": "Glass",
-  "short_name": "Glass",
+  "name": "Git Glass",
+  "short_name": "Git Glass",
   "description": "Local git + feedback console",
   "start_url": "/",
   "display": "standalone",
