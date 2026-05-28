@@ -1,0 +1,26 @@
+- generic [ref=e1]:
+  - tablist "Application views" [ref=e2]:
+    - tab "Feedback" [ref=e3] [cursor=pointer]
+    - tab "Repos" [ref=e4] [cursor=pointer]
+    - tab "Leaderboard" [active] [selected] [ref=e5] [cursor=pointer]
+    - button "Open settings" [ref=e6] [cursor=pointer]:
+      - img [ref=e7]
+  - tabpanel "Leaderboard" [ref=e20]:
+    - banner [ref=e21]:
+      - heading "Leaderboard" [level=2] [ref=e22]
+      - generic [ref=e23]: Ranked by git activity. Click a window to refresh.
+    - toolbar "Time window" [ref=e24]:
+      - button "7d" [ref=e25] [cursor=pointer]
+      - button "30d" [pressed] [ref=e26] [cursor=pointer]
+      - button "90d" [ref=e27] [cursor=pointer]
+      - button "All" [ref=e28] [cursor=pointer]
+    - generic [ref=e29]:
+      - row "# Repo Score ▼ Commits Lines Last Cost" [ref=e30]:
+        - generic [ref=e31]: "#"
+        - generic [ref=e32]: Repo
+        - button "Score ▼" [ref=e33] [cursor=pointer]
+        - button "Commits" [ref=e34] [cursor=pointer]
+        - button "Lines" [ref=e35] [cursor=pointer]
+        - button "Last" [ref=e36] [cursor=pointer]
+        - button "Cost" [ref=e37] [cursor=pointer]
+      - status "Loading" [ref=e38]: Loading…

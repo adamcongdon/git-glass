@@ -1,0 +1,1 @@
+[  172071ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://127.0.0.1:7777/api/leaderboard?window=30d:0

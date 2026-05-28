@@ -1,0 +1,17 @@
+- generic [active] [ref=e1]:
+  - tablist "Application views" [ref=e2]:
+    - tab "Feedback" [selected] [ref=e3] [cursor=pointer]
+    - tab "Repos" [ref=e4] [cursor=pointer]
+    - tab "Leaderboard" [ref=e5] [cursor=pointer]
+    - button "Open settings" [ref=e6] [cursor=pointer]:
+      - img [ref=e7]
+  - main [ref=e11]:
+    - generic [ref=e12]:
+      - generic [ref=e13]: Feedback
+      - textbox "Feedback" [ref=e14]:
+        - /placeholder: Describe the issue or request...
+      - generic [ref=e16]:
+        - text: Drop image here, paste (Ctrl+V), or
+        - generic [ref=e17] [cursor=pointer]: choose a file
+      - button "AI Triage" [disabled] [ref=e19]
+  - text: ▼

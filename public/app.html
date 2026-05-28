@@ -1,0 +1,3280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1A1A1A" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>Glass</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #1A1A1A;
+      --surface: #262626;
+      --border: #4D4D4D;
+      --text: #FFFFFF;
+      --muted: #E5E7EB;
+      --accent-green: #00D15F;
+      --accent-green-hover: #00A64A;
+      --accent-blue: #3B82F6;
+      --accent-blue-hover: #2563EB;
+      --error: #DC2626;
+      --link: #3B82F6;
+      --warning: #F59E0B;
+      --info: #3B82F6;
+      --purple: #a78bfa;
+      --focus-ring: #FFFFFF;
+      --banner-text: #FFFFFF;
+      --shadow-strong: rgba(0,0,0,0.4);
+      --hover-overlay: rgba(255,255,255,0.07);
+      --radius: 6px;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #FFFFFF;
+        --surface: #F5F5F5;
+        --border: #E5E7EB;
+        --text: #1A1A1A;
+        --muted: #6B7280;
+        --accent-green: #00A64A;
+        --accent-green-hover: #008A3E;
+        --accent-blue: #2563EB;
+        --accent-blue-hover: #1D4ED8;
+        --error: #B91C1C;
+        --link: #2563EB;
+        --warning: #B45309;
+        --info: #2563EB;
+        --purple: #6D28D9;
+        --focus-ring: #1A1A1A;
+        --banner-text: #1A1A1A;
+        --shadow-strong: rgba(0,0,0,0.15);
+        --hover-overlay: rgba(0,0,0,0.06);
+      }
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── Tab bar ──────────────────────────────────────────────────────────── */
+    #glass-tabbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 48px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: stretch;
+      padding: 0 16px;
+      gap: 0;
+      z-index: 100;
+    }
+
+    .glass-tab {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0 16px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      height: 100%;
+      transition: color 0.15s, border-color 0.15s;
+      min-height: 48px;
+      white-space: nowrap;
+    }
+    .glass-tab:hover { color: var(--text); }
+    .glass-tab[aria-selected="true"] {
+      color: var(--text);
+      border-bottom-color: var(--accent-green);
+    }
+    .glass-tab:focus {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: -2px;
+    }
+
+    #glass-settings-btn {
+      background: none;
+      border: 1px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      font-size: 18px;
+      margin-left: auto;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    #glass-settings-btn:hover { color: var(--text); border-color: var(--border); }
+    #glass-settings-btn:focus { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+    /* ── Existing feedback-view styles ───────────────────────────────────── */
+
+    /* Header (legacy — hidden now that tab bar handles it) */
+    header { display: none; }
+
+    /* Main content */
+    main {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 68px 16px 24px;
+    }
+
+    /* Offline banner */
+    #offline-banner {
+      display: none;
+      background: rgba(220, 38, 38, 0.15);
+      border: 1px solid var(--error);
+      color: var(--error);
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    #offline-banner.visible { display: block; }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .card label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
+    }
+
+    /* Repo selector */
+    .repo-search-wrap { position: relative; }
+
+    input[type="text"], input[type="password"], textarea, select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--radius);
+      padding: 8px 10px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus, input[type="password"]:focus, textarea:focus, select:focus {
+      border-color: var(--accent-blue);
+    }
+    input[type="text"]:disabled, input[type="password"]:disabled, textarea:disabled, select:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #repo-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0; right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 var(--radius) var(--radius);
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 50;
+      display: none;
+    }
+    #repo-dropdown.open { display: block; }
+
+    .repo-item {
+      padding: 8px 10px;
+      cursor: pointer;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .repo-item:last-child { border-bottom: none; }
+    .repo-item:hover, .repo-item.selected { background: rgba(59, 130, 246, 0.15); }
+    .repo-item .repo-host { color: var(--muted); font-size: 11px; }
+
+    #selected-repo {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--accent-green);
+      min-height: 16px;
+      word-break: break-all;
+    }
+    #selected-repo .repo-meta {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+    }
+
+    /* Textarea */
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: opacity 0.15s, background 0.15s;
+      font-family: inherit;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn:focus { outline: 2px solid #1A1A1A; outline-offset: 2px; }
+
+    .btn-green {
+      background: var(--accent-green);
+      color: #1A1A1A;
+      border-color: rgba(0, 0, 0, 0.15);
+      font-weight: 600;
+    }
+    .btn-green:hover:not(:disabled) { background: var(--accent-green-hover); color: #FFFFFF; }
+
+    .btn-blue {
+      background: var(--accent-blue);
+      color: #FFFFFF;
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    .btn-blue:hover:not(:disabled) { background: var(--accent-blue-hover); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border-color: var(--border);
+    }
+    .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border: 2px solid rgba(127,127,127,0.3);
+      border-top-color: var(--text);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Issue form */
+    #issue-form { display: none; }
+    #issue-form.visible { display: block; }
+
+    .form-row { margin-bottom: 10px; }
+    .form-row label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    select option { background: var(--surface); color: var(--text); }
+
+    /* Status panel */
+    #status-panel { display: none; }
+    #status-panel.visible { display: block; }
+
+    .status-success {
+      background: rgba(0, 209, 95, 0.15);
+      border: 1px solid var(--accent-green);
+      border-radius: var(--radius);
+      padding: 12px;
+      color: var(--text);
+    }
+    .status-error {
+      background: rgba(220, 38, 38, 0.15);
+      border: 1px solid var(--error);
+      border-radius: var(--radius);
+      padding: 12px;
+      color: var(--error);
+    }
+
+    .status-success a, .status-error a {
+      color: var(--link);
+      text-decoration: none;
+    }
+    .status-success a:hover, .status-error a:hover { text-decoration: underline; }
+
+    /* Install prompt */
+    #install-prompt {
+      display: none;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid var(--accent-blue);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    #install-prompt.visible { display: flex; }
+    #install-prompt p { font-size: 13px; color: var(--muted); }
+
+    /* Config panel */
+    #config-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+    }
+    #config-overlay.open { display: block; }
+
+    #config-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+    }
+
+    #config-panel {
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: min(400px, 100vw);
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 20px;
+      animation: slideIn 0.2s ease;
+    }
+    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+    #config-panel h2 {
+      font-size: 16px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .config-section { margin-bottom: 20px; }
+    .config-section h3 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+
+    .scan-path-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .scan-path-row input { flex: 1; }
+    .scan-path-row button {
+      background: transparent;
+      border: 1px solid var(--error);
+      color: var(--error);
+      border-radius: var(--radius);
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .scan-path-row button:hover { background: rgba(220, 38, 38, 0.1); }
+
+    #add-scan-path {
+      background: transparent;
+      border: 1px dashed var(--border);
+      color: var(--muted);
+      border-radius: var(--radius);
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      width: 100%;
+      text-align: left;
+      margin-top: 4px;
+    }
+    #add-scan-path:hover { border-color: var(--muted); color: var(--text); }
+
+    #config-save-status {
+      font-size: 12px;
+      color: var(--accent-green);
+      min-height: 16px;
+      margin-top: 4px;
+    }
+
+    .config-hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    .owner-account-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .owner-account-row input { flex: 1; min-width: 0; }
+    .owner-account-row select { flex: 1; min-width: 0; }
+    .owner-account-row span { color: var(--muted); font-size: 12px; flex-shrink: 0; }
+    .owner-account-row button {
+      background: transparent;
+      border: 1px solid var(--error);
+      color: var(--error);
+      border-radius: var(--radius);
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .owner-account-row button:hover { background: rgba(220, 38, 38, 0.1); }
+
+    #add-owner-account {
+      background: transparent;
+      border: 1px dashed var(--border);
+      color: var(--muted);
+      border-radius: var(--radius);
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      width: 100%;
+      text-align: left;
+      margin-top: 4px;
+    }
+    #add-owner-account:hover { border-color: var(--muted); color: var(--text); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Image attachment zone */
+    #image-zone { margin-top: 8px; }
+
+    #image-dropzone {
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    #image-dropzone.drag-over {
+      border-color: var(--accent-blue);
+      background: rgba(59, 130, 246, 0.08);
+    }
+    #image-dropzone.inactive { opacity: 0.5; pointer-events: none; }
+    #image-dropzone label { color: var(--link); cursor: pointer; }
+    #image-dropzone label:hover { text-decoration: underline; }
+    #image-dropzone input[type="file"] { display: none; }
+
+    #image-preview {
+      display: none;
+      align-items: flex-start;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    #image-preview.visible { display: flex; }
+    #preview-img {
+      max-height: 200px;
+      max-width: calc(100% - 80px);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+    #remove-image-btn {
+      background: transparent;
+      border: 1px solid var(--error);
+      color: var(--error);
+      border-radius: var(--radius);
+      padding: 3px 8px;
+      cursor: pointer;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    #remove-image-btn:hover:not(:disabled) { background: rgba(220, 38, 38, 0.1); }
+    #remove-image-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #image-size-error {
+      display: none;
+      font-size: 12px;
+      color: var(--error);
+      margin-top: 4px;
+    }
+    #image-size-error.visible { display: block; }
+
+    /* Repo card hidden until after triage */
+    #repo-card { display: none; }
+    #repo-card.visible { display: block; }
+
+    /* AI suggested badge */
+    #ai-suggested-badge {
+      display: inline-block;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid var(--accent-blue);
+      color: var(--accent-blue);
+      border-radius: 3px;
+      font-size: 11px;
+      padding: 1px 6px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      main { padding: 60px 12px 20px; }
+    }
+
+    /* icon-btn used in config panel close button */
+    .icon-btn {
+      background: none;
+      border: 1px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      font-size: 18px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .icon-btn:hover { color: var(--text); border-color: var(--border); }
+    .icon-btn:focus { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+    /* ── Glass Repos View ─────────────────────────────────────────────────── */
+
+    #view-repos {
+      padding-top: 48px;
+    }
+
+    /* Toolbar */
+    .glass-repos-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .glass-toolbar-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: var(--radius);
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      transition: background 0.15s, color 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .glass-toolbar-btn:hover { background: var(--hover-overlay); color: var(--text); }
+    .glass-toolbar-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .glass-toolbar-btn:focus { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+    .glass-toolbar-btn.glass-btn-green {
+      background: var(--accent-green);
+      color: #1A1A1A;
+      border-color: transparent;
+      font-weight: 600;
+    }
+    .glass-toolbar-btn.glass-btn-green:hover:not(:disabled) { background: var(--accent-green-hover); color: #FFFFFF; }
+    .glass-toolbar-btn.glass-btn-green:focus { outline: 2px solid #1A1A1A; outline-offset: 2px; }
+
+    .glass-toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+    #glass-autorefresh-select {
+      background: var(--bg);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 5px 8px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    #glass-autorefresh-select:focus { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+    .glass-show-ignored-btn {
+      margin-left: auto;
+    }
+
+    /* Filter chips */
+    .glass-chips {
+      display: flex;
+      gap: 6px;
+      padding: 10px 16px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .glass-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 22px;
+      padding: 0 16px;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .glass-chip:hover { color: var(--text); border-color: var(--muted); }
+    .glass-chip[aria-pressed="true"] {
+      background: var(--accent-blue);
+      color: #fff;
+      border-color: var(--accent-blue);
+    }
+    .glass-chip:focus { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+    .glass-chip-count { opacity: 0.75; margin-left: 3px; }
+
+    /* Repos grid */
+    .glass-repos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .glass-repos-empty {
+      text-align: center;
+      padding: 60px 16px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    /* Repo card */
+    .glass-repo-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      transition: border-color 0.15s;
+      cursor: default;
+    }
+    .glass-repo-card:focus {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+    .glass-repo-card.glass-card-clean { border-left-color: #00A64A; }
+    .glass-repo-card.glass-card-dirty { border-left-color: var(--warning); }
+    .glass-repo-card.glass-card-pending { border-left-color: var(--accent-blue); }
+    .glass-repo-card.glass-card-error { border-left-color: var(--error); }
+
+    .glass-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .glass-card-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--link);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .glass-card-branch {
+      font-size: 11px;
+      background: var(--hover-overlay);
+      padding: 2px 8px;
+      border-radius: 10px;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+      margin-left: 6px;
+    }
+
+    /* Badges row */
+    .glass-badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+      min-height: 4px;
+    }
+    .glass-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 500;
+    }
+    .glass-badge-uncommitted { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.4); }
+    .glass-badge-sync { background: rgba(59,130,246,0.15); color: var(--accent-blue); border: 1px solid rgba(59,130,246,0.4); }
+    .glass-badge-no-remote { background: var(--hover-overlay); color: var(--muted); border: 1px solid var(--border); }
+    .glass-badge-detached { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.4); }
+    .glass-badge-error { background: rgba(220,38,38,0.15); color: var(--error); border: 1px solid rgba(220,38,38,0.4); }
+    .glass-badge-branch-issues { background: rgba(139,92,246,0.15); color: var(--purple); border: 1px solid rgba(139,92,246,0.4); cursor: pointer; }
+    .glass-badge-branch-issues:hover { background: rgba(139,92,246,0.25); }
+
+    /* Branch detail panel */
+    .glass-branch-detail {
+      display: none;
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 6px;
+    }
+    .glass-branch-detail.open { display: block; }
+    .glass-branch-detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2px 0;
+    }
+    .glass-br-name {
+      font-family: monospace;
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 60%;
+    }
+    .glass-br-tag {
+      display: inline-block;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 3px;
+      font-size: 10px;
+    }
+    .glass-br-tag.glass-unpushed { background: rgba(0,209,95,0.12); color: var(--accent-green); }
+    .glass-br-tag.glass-no-upstream { background: var(--hover-overlay); color: var(--muted); }
+    .glass-br-tag.glass-gone { background: rgba(220,38,38,0.15); color: var(--error); }
+    .glass-br-tag.glass-behind { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
+
+    /* Last commit */
+    .glass-last-commit { font-size: 11px; color: var(--muted); margin-top: 6px; }
+    .glass-last-commit.glass-stale-warn { color: var(--warning); }
+    .glass-last-commit.glass-stale-danger { color: var(--error); }
+
+    /* Card action row */
+    .glass-card-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 12px;
+    }
+
+    .glass-action-btn {
+      font-size: 13px;
+      padding: 0 14px;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-family: inherit;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+    .glass-action-btn:hover:not(:disabled) { background: var(--hover-overlay); color: var(--text); }
+    .glass-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .glass-action-btn:focus { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+    .glass-action-btn.glass-pull-btn { border-color: rgba(59,130,246,0.5); color: var(--accent-blue); }
+    .glass-action-btn.glass-pull-btn:hover:not(:disabled) { background: rgba(59,130,246,0.1); }
+    .glass-action-btn.glass-push-btn { border-color: rgba(0,209,95,0.5); color: var(--accent-green); }
+    .glass-action-btn.glass-push-btn:hover:not(:disabled) { background: rgba(0,209,95,0.1); }
+    .glass-action-btn.glass-ai-btn { border-color: rgba(139,92,246,0.5); color: var(--purple); }
+    .glass-action-btn.glass-ai-btn:hover:not(:disabled) { background: rgba(139,92,246,0.1); }
+    .glass-action-btn.glass-delete-btn { border-color: rgba(220,38,38,0.5); color: var(--error); }
+    .glass-action-btn.glass-delete-btn:hover:not(:disabled) { background: rgba(220,38,38,0.1); }
+
+    /* Card overflow */
+    .glass-card-overflow { position: relative; margin-left: auto; }
+    .glass-overflow-btn {
+      width: 44px; height: 44px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      font-family: inherit;
+    }
+    .glass-overflow-btn:hover { background: var(--hover-overlay); color: var(--muted); border-color: var(--border); }
+    .glass-overflow-btn:focus { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+    .glass-overflow-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      bottom: 100%;
+      margin-bottom: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px 0;
+      min-width: 160px;
+      z-index: 50;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .glass-overflow-menu.open { display: block; }
+    .glass-overflow-menu button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 7px 14px;
+      font-size: 12px;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s;
+      font-family: inherit;
+    }
+    .glass-overflow-menu button:hover { background: var(--hover-overlay); }
+    .glass-overflow-menu .glass-danger-item { color: var(--error); }
+    .glass-overflow-menu .glass-danger-item:hover { background: rgba(220,38,38,0.1); }
+
+    /* Toolbar overflow — drops the menu below the button instead of above */
+    .glass-toolbar-overflow { position: relative; }
+    .glass-toolbar-overflow .glass-overflow-menu {
+      top: 100%;
+      bottom: auto;
+      right: 0;
+      margin-top: 4px;
+      margin-bottom: 0;
+    }
+
+    /* ── Ignored repos drawer ─────────────────────────────────────────────── */
+    #glass-ignored-panel {
+      position: fixed;
+      top: 0; right: 0; bottom: 0;
+      width: min(400px, 100vw);
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      z-index: 210;
+      overflow-y: auto;
+      padding: 20px;
+      animation: slideIn 0.2s ease;
+      display: none;
+    }
+    #glass-ignored-panel.open { display: block; }
+    #glass-ignored-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 209;
+    }
+    #glass-ignored-backdrop.open { display: block; }
+
+    .glass-ignored-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .glass-ignored-header h2 { font-size: 16px; }
+    .glass-ignored-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .glass-ignored-path { font-size: 12px; font-family: monospace; color: var(--muted); word-break: break-all; flex: 1; }
+
+    /* ── Glass Modals ─────────────────────────────────────────────────────── */
+    .glass-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+    }
+    .glass-modal-overlay.open { display: flex; }
+
+    .glass-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 28px 32px;
+      max-width: 480px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    #glass-commit-modal .glass-modal,
+    #glass-triage-modal .glass-modal { max-width: 720px; }
+    .glass-modal:focus { outline: none; }
+    .glass-modal h2 { font-size: 18px; margin-bottom: 12px; }
+    .glass-modal p { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+    .glass-modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .glass-modal-delete { border-color: var(--error); }
+    .glass-modal-delete h2 { color: var(--error); }
+
+    .glass-modal-code-path {
+      font-size: 12px;
+      font-family: monospace;
+      background: var(--bg);
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      margin: 8px 0 16px;
+      word-break: break-all;
+      color: var(--text);
+    }
+
+    .glass-commit-msg-pre {
+      background: var(--bg);
+      padding: 12px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      white-space: pre-wrap;
+      margin: 12px 0;
+      max-height: 300px;
+      overflow: auto;
+      color: var(--text);
+      font-family: monospace;
+      border: 1px solid var(--border);
+      cursor: text;
+      user-select: all;
+    }
+
+    .glass-triage-output {
+      background: var(--bg);
+      padding: 12px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      white-space: pre-wrap;
+      margin: 12px 0;
+      max-height: 400px;
+      overflow: auto;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* ── Banner ───────────────────────────────────────────────────────────── */
+    #glass-banner {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      max-width: 380px;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      color: var(--banner-text);
+      z-index: 400;
+      box-shadow: 0 4px 12px var(--shadow-strong);
+      transition: opacity 0.3s;
+    }
+    #glass-banner[hidden] { display: none; }
+    #glass-banner.glass-banner-success { background: rgba(0,209,95,0.2); border: 1px solid var(--accent-green); }
+    #glass-banner.glass-banner-error { background: rgba(220,38,38,0.2); border: 1px solid var(--error); }
+    #glass-banner.glass-banner-info { background: rgba(59,130,246,0.2); border: 1px solid var(--accent-blue); }
+
+    /* ── Glass Leaderboard View ──────────────────────────────────────────── */
+
+    #view-leaderboard {
+      padding-top: 48px;
+    }
+
+    .glass-leaderboard-header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .glass-leaderboard-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .glass-leaderboard-hint {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Window selector toolbar */
+    .glass-leaderboard-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .glass-leaderboard-window {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: var(--radius);
+      padding: 4px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .glass-leaderboard-window:hover {
+      color: var(--text);
+      background: var(--hover-overlay);
+    }
+    .glass-leaderboard-window:focus {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+    .glass-leaderboard-window[aria-pressed="true"],
+    .glass-leaderboard-window--active {
+      background: var(--accent-green);
+      color: var(--bg);
+      border-color: var(--accent-green);
+      font-weight: 600;
+    }
+
+    /* Results list */
+    .glass-leaderboard-list {
+      padding: 8px 16px 24px;
+    }
+
+    .glass-leaderboard-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 24px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .glass-leaderboard-loading[hidden] { display: none; }
+
+    .glass-leaderboard-empty {
+      padding: 32px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .glass-leaderboard-empty[hidden] { display: none; }
+
+    /* Each leaderboard row */
+    .glass-leaderboard-row {
+      display: grid;
+      grid-template-columns: 32px 1fr auto auto auto auto auto;
+      align-items: center;
+      gap: 8px 12px;
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 6px;
+      background: var(--surface);
+      transition: background 0.12s;
+    }
+    .glass-leaderboard-row:hover {
+      background: var(--hover-overlay);
+    }
+
+    .glass-leaderboard-rank {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      text-align: right;
+    }
+    .glass-leaderboard-rank--top {
+      color: var(--accent-green);
+    }
+
+    .glass-leaderboard-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .glass-leaderboard-score {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-green);
+      white-space: nowrap;
+      min-width: 48px;
+      text-align: right;
+    }
+
+    .glass-leaderboard-commits {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      min-width: 52px;
+      text-align: right;
+    }
+
+    .glass-leaderboard-lines {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      min-width: 80px;
+      text-align: right;
+    }
+
+    .glass-leaderboard-date {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      min-width: 64px;
+      text-align: right;
+    }
+
+    .glass-leaderboard-cost {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      white-space: nowrap;
+      min-width: 64px;
+      text-align: right;
+    }
+    .glass-leaderboard-cost--zero {
+      color: var(--border);
+      font-weight: 400;
+    }
+
+    .glass-leaderboard-header-row {
+      display: grid;
+      grid-template-columns: 32px 1fr auto auto auto auto auto;
+      align-items: center;
+      gap: 8px 12px;
+      padding: 6px 12px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 6px;
+    }
+    .glass-leaderboard-h {
+      background: transparent;
+      border: 0;
+      padding: 4px 2px;
+      color: inherit;
+      font: inherit;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .glass-leaderboard-h--name { text-align: left; }
+    .glass-leaderboard-h--sortable { cursor: pointer; border-radius: 3px; }
+    .glass-leaderboard-h--sortable:hover { color: var(--text); }
+    .glass-leaderboard-h--sortable:focus-visible {
+      outline: 2px solid var(--accent-green);
+      outline-offset: 1px;
+    }
+    .glass-leaderboard-h--sortable[aria-sort="ascending"],
+    .glass-leaderboard-h--sortable[aria-sort="descending"] {
+      color: var(--accent-green);
+    }
+    .glass-leaderboard-h--sortable[aria-sort="ascending"]::after { content: ' \25B2'; }
+    .glass-leaderboard-h--sortable[aria-sort="descending"]::after { content: ' \25BC'; }
+
+    .glass-leaderboard-error {
+      font-size: 11px;
+      color: var(--error);
+      grid-column: 2 / -1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .glass-tab,
+      .glass-repo-card,
+      .glass-chip,
+      #glass-banner,
+      .spinner,
+      #glass-ignored-panel,
+      #glass-ignored-backdrop,
+      .glass-leaderboard-row,
+      .glass-leaderboard-window {
+        transition: none;
+        animation: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Tab bar ─────────────────────────────────────────────────────────── -->
+  <nav id="glass-tabbar" role="tablist" aria-label="Application views">
+    <button
+      id="glass-tab-feedback"
+      class="glass-tab"
+      role="tab"
+      aria-selected="true"
+      aria-controls="view-feedback"
+      tabindex="0"
+    >Feedback</button>
+    <button
+      id="glass-tab-repos"
+      class="glass-tab"
+      role="tab"
+      aria-selected="false"
+      aria-controls="view-repos"
+      tabindex="-1"
+    >Repos</button>
+    <button
+      id="glass-tab-leaderboard"
+      class="glass-tab"
+      role="tab"
+      aria-selected="false"
+      aria-controls="view-leaderboard"
+      tabindex="-1"
+    >Leaderboard</button>
+    <button class="icon-btn" id="glass-settings-btn" title="Settings" aria-label="Open settings">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+        <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.892 3.433-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.892-1.64-.901-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.474l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/>
+      </svg>
+    </button>
+  </nav>
+
+  <!-- ── Feedback View (existing content, wrapped) ──────────────────────── -->
+  <div id="view-feedback">
+    <header>
+      <h1>Git Glass</h1>
+      <button class="icon-btn" id="gear-btn" title="Settings" aria-label="Open settings">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+          <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.892 3.433-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.892-1.64-.901-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.474l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/>
+        </svg>
+      </button>
+    </header>
+
+    <main>
+      <div id="offline-banner">Server offline. Check that the feedback tool is running.</div>
+
+      <div id="install-prompt">
+        <p>Install Glass as an app for quick access.</p>
+        <button class="btn btn-blue btn-sm" id="install-btn" style="font-size:12px;padding:5px 10px;">Install</button>
+      </div>
+
+      <!-- Repo Selector (hidden until after triage) -->
+      <div class="card" id="repo-card">
+        <label for="repo-search">Repository</label>
+        <div class="repo-search-wrap">
+          <input type="text" id="repo-search" placeholder="Search repositories..." autocomplete="off" />
+          <div id="repo-dropdown"></div>
+        </div>
+        <div id="selected-repo"></div>
+      </div>
+
+      <!-- Feedback Input -->
+      <div class="card">
+        <label for="feedback-text">Feedback</label>
+        <textarea id="feedback-text" placeholder="Describe the issue or request..."></textarea>
+        <div id="image-zone">
+          <div id="image-dropzone">
+            Drop image here, paste (Ctrl+V), or <label for="image-picker">choose a file</label>
+            <input type="file" id="image-picker" accept="image/*" />
+          </div>
+          <div id="image-preview">
+            <img id="preview-img" alt="Attached screenshot" />
+            <button id="remove-image-btn" type="button">Remove</button>
+          </div>
+          <div id="image-size-error"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-blue" id="triage-btn" disabled>AI Triage</button>
+        </div>
+      </div>
+
+      <!-- Issue Form (hidden until triaged) -->
+      <div class="card" id="issue-form">
+        <div class="form-row">
+          <label for="issue-title">Title</label>
+          <input type="text" id="issue-title" placeholder="Issue title..." />
+        </div>
+        <div class="form-row">
+          <label for="issue-type">Type</label>
+          <select id="issue-type">
+            <option value="bug">Bug</option>
+            <option value="feature">Feature Request</option>
+            <option value="question">Question</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="issue-body">Description</label>
+          <textarea id="issue-body" style="min-height:120px;" placeholder="Issue details..."></textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-green" id="submit-btn" disabled>Submit Issue</button>
+        </div>
+      </div>
+
+      <!-- Status panel -->
+      <div id="status-panel"></div>
+    </main>
+
+    <!-- Config overlay -->
+    <div id="config-overlay" role="dialog" aria-modal="true" aria-label="Settings">
+      <div id="config-backdrop"></div>
+      <div id="config-panel">
+        <h2>
+          Settings
+          <button class="icon-btn" id="close-config-btn" title="Close" aria-label="Close settings">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854z"/>
+            </svg>
+          </button>
+        </h2>
+
+        <div class="config-section">
+          <h3>Scan Paths</h3>
+          <div id="scan-paths-list"></div>
+          <button id="add-scan-path">+ Add path</button>
+        </div>
+
+        <div class="config-section">
+          <h3>Scan Depth</h3>
+          <input type="text" id="config-depth" placeholder="3" />
+        </div>
+
+        <div class="config-section">
+          <h3>AI Account (GitHub Copilot)</h3>
+          <select id="config-copilot-account">
+            <option value="">— select account —</option>
+          </select>
+          <p class="config-hint">Account with GitHub Copilot access, used for AI triage</p>
+        </div>
+
+        <div class="config-section">
+          <h3>Default Issue Account</h3>
+          <select id="config-default-account">
+            <option value="">— select account —</option>
+          </select>
+          <p class="config-hint">Used when no per-org override matches the repo</p>
+        </div>
+
+        <div class="config-section">
+          <h3>Per-Org Account Overrides</h3>
+          <p class="config-hint" style="margin-bottom:8px;">Map a GitHub org or username to a specific account (e.g. "veeam" → "v-AdamC")</p>
+          <div id="owner-accounts-list"></div>
+          <button id="add-owner-account">+ Add mapping</button>
+        </div>
+
+        <div class="config-section">
+          <h3>GitLab Tokens</h3>
+          <p class="config-hint" style="margin-bottom:8px;">Personal Access Token (scope: <code>api</code>) per GitLab host. Leave blank and Save to remove.</p>
+          <div id="gitlab-tokens-list"></div>
+          <button id="add-gitlab-token">+ Add token</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-green" id="config-save-btn">Save</button>
+        </div>
+        <div id="config-save-status"></div>
+      </div>
+    </div>
+  </div><!-- /#view-feedback -->
+
+  <!-- ── Repos View ──────────────────────────────────────────────────────── -->
+  <div id="view-repos" hidden>
+
+    <!-- Toolbar -->
+    <div class="glass-repos-toolbar">
+      <button class="glass-toolbar-btn" id="glass-refresh-btn" title="Refresh repos">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/></svg>
+        Refresh
+      </button>
+      <button class="glass-toolbar-btn glass-btn-green" id="glass-pull-all-btn" disabled title="Pull all safe repos (behind &gt; 0, no uncommitted changes)">
+        Pull All Safe
+      </button>
+      <div class="glass-toolbar-sep"></div>
+      <label for="glass-autorefresh-select" style="font-size:12px;color:var(--muted);">Auto:</label>
+      <select id="glass-autorefresh-select" title="Auto-refresh interval">
+        <option value="0">Off</option>
+        <option value="30">30s</option>
+        <option value="60">1m</option>
+        <option value="300">5m</option>
+        <option value="900">15m</option>
+        <option value="1800">30m</option>
+      </select>
+      <button class="glass-toolbar-btn glass-ai-triage-btn" id="glass-ai-triage-btn" style="display:none" title="AI triage all actionable repos">
+        AI Triage
+      </button>
+      <button class="glass-toolbar-btn glass-show-ignored-btn" id="glass-show-ignored-btn">
+        Show Ignored
+      </button>
+      <div class="glass-toolbar-overflow" id="glass-toolbar-overflow">
+        <button class="glass-overflow-btn" id="glass-toolbar-overflow-btn" aria-label="More server actions" aria-haspopup="true" aria-expanded="false" title="More actions">⋯</button>
+        <div class="glass-overflow-menu" id="glass-toolbar-overflow-menu" role="menu">
+          <button data-action="check-updates" role="menuitem">Check for Updates</button>
+          <button data-action="restart" role="menuitem">Restart Server</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter chips -->
+    <div class="glass-chips" role="group" aria-label="Filter repositories" id="glass-chips-bar">
+      <button class="glass-chip" aria-pressed="true"  data-filter="all"           tabindex="0">All <span class="glass-chip-count" id="glass-count-all"></span></button>
+      <button class="glass-chip" aria-pressed="false" data-filter="dirty"         tabindex="0">Uncommitted <span class="glass-chip-count" id="glass-count-dirty"></span></button>
+      <button class="glass-chip" aria-pressed="false" data-filter="pending"       tabindex="0">Ahead/Behind <span class="glass-chip-count" id="glass-count-pending"></span></button>
+      <button class="glass-chip" aria-pressed="false" data-filter="clean"         tabindex="0">Clean <span class="glass-chip-count" id="glass-count-clean"></span></button>
+      <button class="glass-chip" aria-pressed="false" data-filter="no-remote"     tabindex="0">No Remote <span class="glass-chip-count" id="glass-count-no-remote"></span></button>
+      <button class="glass-chip" aria-pressed="false" data-filter="branch-issues" tabindex="0">Branch Issues <span class="glass-chip-count" id="glass-count-branch-issues"></span></button>
+      <button class="glass-chip" aria-pressed="false" data-filter="stale"         tabindex="0">Stale <span class="glass-chip-count" id="glass-count-stale"></span></button>
+      <button class="glass-chip" aria-pressed="false" data-filter="error"         tabindex="0">Errors <span class="glass-chip-count" id="glass-count-error"></span></button>
+    </div>
+
+    <!-- Grid area -->
+    <div id="glass-repos-grid" class="glass-repos-grid"></div>
+
+    <!-- Ignored repos drawer backdrop -->
+    <div id="glass-ignored-backdrop"></div>
+
+    <!-- Ignored repos drawer -->
+    <div id="glass-ignored-panel" role="dialog" aria-modal="true" aria-label="Ignored repositories">
+      <div class="glass-ignored-header">
+        <h2>Ignored Repos</h2>
+        <button class="icon-btn" id="glass-close-ignored-btn" aria-label="Close ignored panel">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854z"/>
+          </svg>
+        </button>
+      </div>
+      <div id="glass-ignored-list"></div>
+    </div>
+
+    <!-- Delete confirm modal -->
+    <div class="glass-modal-overlay" id="glass-delete-modal" role="dialog" aria-modal="true" aria-label="Delete repository">
+      <div class="glass-modal glass-modal-delete" tabindex="-1">
+        <h2>Delete Repository?</h2>
+        <p>This permanently deletes the folder from disk. Type the repo name to confirm:</p>
+        <div class="glass-modal-code-path" id="glass-delete-path"></div>
+        <input type="text" id="glass-delete-confirm-input" placeholder="Type repo name to confirm..." autocomplete="off" style="margin-bottom:4px;" />
+        <div class="glass-modal-actions">
+          <button class="btn btn-ghost" id="glass-delete-cancel-btn">Cancel</button>
+          <button class="btn" style="background:var(--error);color:#fff;border:none;" id="glass-delete-confirm-btn" disabled>Delete Forever</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI commit message modal -->
+    <div class="glass-modal-overlay" id="glass-commit-modal" role="dialog" aria-modal="true" aria-label="AI commit message">
+      <div class="glass-modal" tabindex="-1">
+        <h2 style="color:var(--accent-blue)">AI Commit Message</h2>
+        <p id="glass-commit-repo-label" style="font-size:13px;margin-bottom:4px;"></p>
+        <pre class="glass-commit-msg-pre" id="glass-commit-msg-text"></pre>
+        <div class="glass-modal-actions">
+          <button class="btn btn-ghost" id="glass-commit-close-btn">Close</button>
+          <button class="btn btn-blue" id="glass-commit-copy-btn">Copy to Clipboard</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI triage modal -->
+    <div class="glass-modal-overlay" id="glass-triage-modal" role="dialog" aria-modal="true" aria-label="AI triage">
+      <div class="glass-modal" tabindex="-1">
+        <h2 style="color:var(--accent-blue)">AI Triage</h2>
+        <div class="glass-triage-output" id="glass-triage-output" role="status" aria-live="polite">Analyzing...</div>
+        <div class="glass-modal-actions">
+          <button class="btn btn-ghost" id="glass-triage-close-btn">Close</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /#view-repos -->
+
+  <!-- ── Leaderboard View ───────────────────────────────────────────────── -->
+  <section id="view-leaderboard" role="tabpanel" aria-labelledby="glass-tab-leaderboard" hidden>
+    <header class="glass-leaderboard-header">
+      <h2 class="glass-leaderboard-title">Leaderboard</h2>
+      <span class="glass-leaderboard-hint">Ranked by git activity. Click a window to refresh.</span>
+    </header>
+
+    <!-- Window selector toolbar -->
+    <div class="glass-leaderboard-toolbar" role="toolbar" aria-label="Time window">
+      <button class="glass-leaderboard-window" data-window="7d"  aria-pressed="false">7d</button>
+      <button class="glass-leaderboard-window" data-window="30d" aria-pressed="true">30d</button>
+      <button class="glass-leaderboard-window" data-window="90d" aria-pressed="false">90d</button>
+      <button class="glass-leaderboard-window" data-window="all" aria-pressed="false">All</button>
+    </div>
+
+    <!-- Results -->
+    <div class="glass-leaderboard-list" id="glass-leaderboard-list">
+      <div class="glass-leaderboard-header-row" role="row">
+        <span class="glass-leaderboard-h glass-leaderboard-h--rank">#</span>
+        <span class="glass-leaderboard-h glass-leaderboard-h--name">Repo</span>
+        <button class="glass-leaderboard-h glass-leaderboard-h--sortable" data-sort="score" aria-sort="descending">Score</button>
+        <button class="glass-leaderboard-h glass-leaderboard-h--sortable" data-sort="commits" aria-sort="none">Commits</button>
+        <button class="glass-leaderboard-h glass-leaderboard-h--sortable" data-sort="lines" aria-sort="none">Lines</button>
+        <button class="glass-leaderboard-h glass-leaderboard-h--sortable" data-sort="date" aria-sort="none">Last</button>
+        <button class="glass-leaderboard-h glass-leaderboard-h--sortable" data-sort="cost" aria-sort="none">Cost</button>
+      </div>
+      <div class="glass-leaderboard-loading" id="glass-leaderboard-loading" role="status" aria-label="Loading" hidden>
+        <span class="spinner" style="width:18px;height:18px;"></span> Loading&hellip;
+      </div>
+      <div class="glass-leaderboard-empty" id="glass-leaderboard-empty" hidden>No commits in this window.</div>
+    </div>
+  </section><!-- /#view-leaderboard -->
+
+  <!-- ── Global banner ──────────────────────────────────────────────────── -->
+  <div id="glass-banner" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+
+  <!-- ── Feedback view script (original, unchanged) ────────────────────── -->
+  <script>
+    // State machine
+    const STATES = {
+      IDLE: 'IDLE',
+      DRAFT: 'DRAFT',
+      TRIAGING: 'TRIAGING',
+      TRIAGED: 'TRIAGED',
+      SUBMITTING: 'SUBMITTING',
+      SUCCESS: 'SUCCESS',
+      ERROR: 'ERROR',
+    };
+
+    let state = STATES.IDLE;
+    let repos = [];
+    let selectedRepo = null;
+    let attachedImage = null; // { dataUrl, mimeType }
+    let repoSearchTimer = null;
+    let deferredInstall = null;
+    let healthInterval = null;
+    let successTimer = null;
+
+    // DOM refs
+    const repoCard = document.getElementById('repo-card');
+    const offlineBanner = document.getElementById('offline-banner');
+    const installPrompt = document.getElementById('install-prompt');
+    const installBtn = document.getElementById('install-btn');
+    const repoSearch = document.getElementById('repo-search');
+    const repoDropdown = document.getElementById('repo-dropdown');
+    const selectedRepoEl = document.getElementById('selected-repo');
+    const feedbackText = document.getElementById('feedback-text');
+    const triageBtn = document.getElementById('triage-btn');
+    const issueForm = document.getElementById('issue-form');
+    const issueTitleEl = document.getElementById('issue-title');
+    const issueTypeEl = document.getElementById('issue-type');
+    const issueBodyEl = document.getElementById('issue-body');
+    const submitBtn = document.getElementById('submit-btn');
+    const statusPanel = document.getElementById('status-panel');
+    const gearBtn = document.getElementById('gear-btn');
+    const configOverlay = document.getElementById('config-overlay');
+    const configBackdrop = document.getElementById('config-backdrop');
+    const closeConfigBtn = document.getElementById('close-config-btn');
+    const scanPathsList = document.getElementById('scan-paths-list');
+    const addScanPathBtn = document.getElementById('add-scan-path');
+    const configDepth = document.getElementById('config-depth');
+    const configCopilotAccount = document.getElementById('config-copilot-account');
+    const configDefaultAccount = document.getElementById('config-default-account');
+    const ownerAccountsList = document.getElementById('owner-accounts-list');
+    const addOwnerAccountBtn = document.getElementById('add-owner-account');
+    const gitlabTokensList = document.getElementById('gitlab-tokens-list');
+    const addGitlabTokenBtn = document.getElementById('add-gitlab-token');
+    const configSaveBtn = document.getElementById('config-save-btn');
+    const configSaveStatus = document.getElementById('config-save-status');
+    const imageDropzone = document.getElementById('image-dropzone');
+    const imagePicker = document.getElementById('image-picker');
+    const imagePreview = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
+    const removeImageBtn = document.getElementById('remove-image-btn');
+    const imageSizeError = document.getElementById('image-size-error');
+
+    // State management
+    function setState(newState) {
+      state = newState;
+      updateUI();
+    }
+
+    function updateUI() {
+      const isInputDisabled = state === STATES.TRIAGING || state === STATES.SUBMITTING;
+      const hasText = feedbackText.value.trim().length > 0;
+      const hasTitle = issueTitleEl.value.trim().length > 0;
+      const hasRepo = !!selectedRepo;
+
+      // Feedback textarea
+      feedbackText.disabled = isInputDisabled || state === STATES.SUCCESS;
+
+      // Triage button
+      triageBtn.disabled = isInputDisabled || !hasText || (state !== STATES.DRAFT && state !== STATES.TRIAGED);
+      if (state === STATES.TRIAGING) {
+        triageBtn.innerHTML = '<span class="spinner"></span> Analyzing...';
+      } else {
+        triageBtn.innerHTML = 'AI Triage';
+      }
+
+      // Repo card visibility — shown after triage has run
+      if (state === STATES.TRIAGED || state === STATES.SUBMITTING || state === STATES.ERROR || state === STATES.SUCCESS) {
+        repoCard.classList.add('visible');
+      } else {
+        repoCard.classList.remove('visible');
+      }
+
+      // Issue form visibility
+      if (state === STATES.TRIAGED || state === STATES.SUBMITTING || state === STATES.ERROR) {
+        issueForm.classList.add('visible');
+      } else {
+        issueForm.classList.remove('visible');
+      }
+
+      // Issue form fields
+      issueTitleEl.disabled = isInputDisabled;
+      issueTypeEl.disabled = isInputDisabled;
+      issueBodyEl.disabled = isInputDisabled;
+
+      // Submit button
+      submitBtn.disabled = isInputDisabled || !hasRepo || !hasTitle || (state !== STATES.TRIAGED && state !== STATES.ERROR);
+      if (state === STATES.SUBMITTING) {
+        submitBtn.textContent = 'Submitting...';
+      } else {
+        submitBtn.textContent = 'Submit Issue';
+      }
+
+      // Image zone
+      if (isInputDisabled) {
+        imageDropzone.classList.add('inactive');
+        removeImageBtn.disabled = true;
+      } else {
+        imageDropzone.classList.remove('inactive');
+        removeImageBtn.disabled = false;
+      }
+
+      // Repo search
+      repoSearch.disabled = isInputDisabled;
+
+      // Status panel
+      if (state !== STATES.SUCCESS && state !== STATES.ERROR) {
+        statusPanel.style.display = 'none';
+        statusPanel.className = '';
+        statusPanel.innerHTML = '';
+      }
+    }
+
+    // Health check
+    async function checkHealth() {
+      try {
+        const resp = await fetch('/api/health');
+        if (resp.ok) {
+          offlineBanner.classList.remove('visible');
+        } else {
+          offlineBanner.classList.add('visible');
+        }
+      } catch {
+        offlineBanner.classList.add('visible');
+      }
+    }
+
+    // Repo loading
+    async function loadRepos() {
+      try {
+        const resp = await fetch('/api/repos');
+        if (resp.ok) {
+          repos = await resp.json();
+          restoreSelectedRepo();
+        }
+      } catch (err) {
+        console.error('Failed to load repos:', err);
+      }
+    }
+
+    function restoreSelectedRepo() {
+      const lastUrl = localStorage.getItem('lastRepo');
+      const lastName = localStorage.getItem('lastRepoName');
+      if (lastUrl) {
+        const found = repos.find(r => r.remoteUrl === lastUrl);
+        if (found) {
+          selectRepo(found, false);
+        }
+      }
+    }
+
+    function selectRepo(repo, save = true, showAiBadge = false) {
+      selectedRepo = repo;
+      repoSearch.value = repo.name;
+      selectedRepoEl.innerHTML = '';
+      const pathLine = document.createElement('div');
+      pathLine.textContent = repo.localPath;
+      const remoteLine = document.createElement('div');
+      remoteLine.className = 'repo-meta';
+      remoteLine.textContent = `remote: ${repo.remoteUrl}`;
+      const targetLine = document.createElement('div');
+      targetLine.className = 'repo-meta';
+      targetLine.textContent = `target: ${repo.host}/${repo.owner}/${repo.repo}`;
+      selectedRepoEl.append(pathLine, remoteLine, targetLine);
+
+      clearAiBadge();
+      if (showAiBadge) {
+        const badge = document.createElement('span');
+        badge.id = 'ai-suggested-badge';
+        badge.textContent = 'AI suggested';
+        repoSearch.insertAdjacentElement('afterend', badge);
+      }
+
+      repoDropdown.classList.remove('open');
+      if (save) {
+        localStorage.setItem('lastRepo', repo.remoteUrl);
+        localStorage.setItem('lastRepoName', repo.name);
+      }
+      // Recheck submit button state
+      if (state === STATES.TRIAGED || state === STATES.ERROR) {
+        updateUI();
+      }
+    }
+
+    function clearAiBadge() {
+      const badge = document.getElementById('ai-suggested-badge');
+      if (badge) badge.remove();
+    }
+
+    function filterRepos(query) {
+      const q = query.toLowerCase().trim();
+      const list = !q ? repos : repos.filter(r =>
+        r.name.toLowerCase().includes(q) ||
+        r.host.toLowerCase().includes(q) ||
+        r.localPath.toLowerCase().includes(q)
+      );
+      renderDropdown(list);
+    }
+
+    function renderDropdown(list) {
+      repoDropdown.innerHTML = '';
+      if (list.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'repo-item';
+        empty.style.color = 'var(--muted)';
+        empty.textContent = repos.length === 0 ? 'No repos found. Add scan paths in settings.' : 'No matches.';
+        repoDropdown.appendChild(empty);
+      } else {
+        list.slice(0, 50).forEach(repo => {
+          const item = document.createElement('div');
+          item.className = 'repo-item';
+          if (selectedRepo && selectedRepo.remoteUrl === repo.remoteUrl) {
+            item.classList.add('selected');
+          }
+          item.innerHTML = `<div>${escapeHtml(repo.name)}</div><div class="repo-host">${escapeHtml(repo.host)} &middot; ${escapeHtml(repo.localPath)}</div>`;
+          item.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            selectRepo(repo);
+          });
+          repoDropdown.appendChild(item);
+        });
+      }
+      repoDropdown.classList.add('open');
+    }
+
+    // Repo search events
+    repoSearch.addEventListener('focus', () => {
+      filterRepos(repoSearch.value);
+    });
+
+    repoSearch.addEventListener('input', () => {
+      selectedRepo = null;
+      selectedRepoEl.textContent = '';
+      clearAiBadge();
+      checkDraftState();
+      clearTimeout(repoSearchTimer);
+      repoSearchTimer = setTimeout(() => filterRepos(repoSearch.value), 150);
+    });
+
+    repoSearch.addEventListener('blur', () => {
+      setTimeout(() => repoDropdown.classList.remove('open'), 150);
+    });
+
+    // Feedback input
+    feedbackText.addEventListener('input', checkDraftState);
+
+    function checkDraftState() {
+      const hasText = feedbackText.value.trim().length > 0;
+      if (hasText && (state === STATES.IDLE)) {
+        setState(STATES.DRAFT);
+      } else if (!hasText && state === STATES.DRAFT) {
+        setState(STATES.IDLE);
+      } else {
+        updateUI();
+      }
+    }
+
+    // Issue form fields update submit button
+    issueTitleEl.addEventListener('input', updateUI);
+    issueBodyEl.addEventListener('input', updateUI);
+
+    // Image attachment
+    function attachImage(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      if (file.size > 5 * 1024 * 1024) {
+        imageSizeError.textContent = 'Image too large (max 5 MB). Please use a smaller screenshot.';
+        imageSizeError.classList.add('visible');
+        return;
+      }
+      imageSizeError.classList.remove('visible');
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        attachedImage = { dataUrl: e.target.result, mimeType: file.type };
+        previewImg.src = e.target.result;
+        imageDropzone.style.display = 'none';
+        imagePreview.classList.add('visible');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearImage() {
+      attachedImage = null;
+      previewImg.src = '';
+      imageDropzone.style.display = '';
+      imagePreview.classList.remove('visible');
+      imageSizeError.classList.remove('visible');
+      imagePicker.value = '';
+    }
+
+    // Paste: scoped to the feedback card
+    feedbackText.closest('.card').addEventListener('paste', (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          attachImage(item.getAsFile());
+          return;
+        }
+      }
+    });
+
+    // Drag-drop
+    imageDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      imageDropzone.classList.add('drag-over');
+    });
+    imageDropzone.addEventListener('dragleave', () => {
+      imageDropzone.classList.remove('drag-over');
+    });
+    imageDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      imageDropzone.classList.remove('drag-over');
+      const file = e.dataTransfer?.files[0];
+      if (file) attachImage(file);
+    });
+
+    // File picker
+    imagePicker.addEventListener('change', () => {
+      const file = imagePicker.files[0];
+      if (file) attachImage(file);
+    });
+
+    // Remove button
+    removeImageBtn.addEventListener('click', clearImage);
+
+    // Triage
+    triageBtn.addEventListener('click', async () => {
+      if (state !== STATES.DRAFT && state !== STATES.TRIAGED) return;
+      const text = feedbackText.value.trim();
+      if (!text) return;
+
+      setState(STATES.TRIAGING);
+      try {
+        const triageBody = { text };
+        if (attachedImage) {
+          triageBody.imageBase64 = attachedImage.dataUrl;
+          triageBody.imageMimeType = attachedImage.mimeType;
+        }
+        // Include repos for AI repo suggestion (max 200, only name + host)
+        const repoPayload = repos.slice(0, 200).map(r => ({ name: r.name, host: r.host }));
+        if (repoPayload.length > 0) {
+          triageBody.repos = repoPayload;
+        }
+        const resp = await fetch('/api/triage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(triageBody),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data.error?.message || 'Triage failed');
+        }
+        issueTitleEl.value = data.title || '';
+        issueBodyEl.value = data.body || '';
+        if (data.type) {
+          issueTypeEl.value = data.type;
+        }
+        // Handle AI repo suggestion
+        if (data.suggestedRepo) {
+          const found = repos.find(r => r.name === data.suggestedRepo);
+          if (found) {
+            selectRepo(found, true, true);
+          }
+        }
+        setState(STATES.TRIAGED);
+      } catch (err) {
+        showError(err.message);
+      }
+    });
+
+    // Submit
+    submitBtn.addEventListener('click', async () => {
+      if (!selectedRepo) return;
+      const title = issueTitleEl.value.trim();
+      if (!title) return;
+
+      setState(STATES.SUBMITTING);
+      try {
+        const issueBody = {
+          repoRemoteUrl: selectedRepo.remoteUrl,
+          title,
+          body: issueBodyEl.value.trim(),
+          type: issueTypeEl.value,
+        };
+        if (attachedImage) {
+          issueBody.imageBase64 = attachedImage.dataUrl;
+        }
+        const resp = await fetch('/api/issues', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(issueBody),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data.error?.message || 'Submission failed');
+        }
+        showSuccess(data.url, data.number);
+      } catch (err) {
+        showError(err.message);
+      }
+    });
+
+    function showSuccess(url, number) {
+      setState(STATES.SUCCESS);
+      statusPanel.style.display = 'block';
+      statusPanel.innerHTML = '';
+      const box = document.createElement('div');
+      box.className = 'status-success';
+      const strong = document.createElement('strong');
+      strong.textContent = `Issue #${number} created!`;
+      const br = document.createElement('br');
+      const link = document.createElement('a');
+      link.href = url;
+      link.textContent = url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      box.append(strong, br, link);
+      statusPanel.appendChild(box);
+      // Reset after 3 seconds
+      clearTimeout(successTimer);
+      successTimer = setTimeout(() => {
+        feedbackText.value = '';
+        issueTitleEl.value = '';
+        issueBodyEl.value = '';
+        issueTypeEl.value = 'bug';
+        clearImage();
+        clearAiBadge();
+        statusPanel.style.display = 'none';
+        setState(STATES.IDLE);
+      }, 3000);
+    }
+
+    function showError(message) {
+      setState(STATES.ERROR);
+      statusPanel.style.display = 'block';
+      statusPanel.innerHTML = `
+        <div class="status-error">
+          <strong>Error:</strong> ${escapeHtml(message)}<br/>
+          <button class="btn btn-ghost" style="margin-top:8px;font-size:12px;" id="try-again-btn">Try again</button>
+        </div>
+      `;
+      document.getElementById('try-again-btn')?.addEventListener('click', () => {
+        statusPanel.style.display = 'none';
+        setState(STATES.TRIAGED);
+      });
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.appendChild(document.createTextNode(str));
+      return div.innerHTML;
+    }
+
+    // Config panel — wired to both gear-btn (legacy inside view-feedback) and glass-settings-btn (tabbar)
+    async function openConfig() {
+      configOverlay.classList.add('open');
+      const [cfgResp, accountsResp] = await Promise.allSettled([
+        fetch('/api/config'),
+        fetch('/api/gh-accounts'),
+      ]);
+      if (accountsResp.status === 'fulfilled' && accountsResp.value.ok) {
+        ghAccounts = await accountsResp.value.json();
+      }
+      if (cfgResp.status === 'fulfilled' && cfgResp.value.ok) {
+        const cfg = await cfgResp.value.json();
+        populateConfigForm(cfg);
+      }
+    }
+
+    function closeConfig() {
+      configOverlay.classList.remove('open');
+    }
+
+    gearBtn.addEventListener('click', openConfig);
+    closeConfigBtn.addEventListener('click', closeConfig);
+    configBackdrop.addEventListener('click', closeConfig);
+
+    document.getElementById('glass-settings-btn').addEventListener('click', openConfig);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && configOverlay.classList.contains('open')) {
+        closeConfig();
+      }
+    });
+
+    let ghAccounts = [];
+
+    function populateAccountSelect(select, currentValue) {
+      const accounts = ghAccounts.length ? ghAccounts : (currentValue ? [currentValue] : []);
+      select.innerHTML = '<option value="">— select account —</option>';
+      const all = [...new Set([...accounts, ...(currentValue ? [currentValue] : [])])];
+      all.forEach(account => {
+        const opt = document.createElement('option');
+        opt.value = account;
+        opt.textContent = account;
+        if (account === currentValue) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function populateConfigForm(cfg) {
+      configDepth.value = cfg.scanDepth ?? 3;
+
+      const gh = cfg.github ?? {};
+      populateAccountSelect(configCopilotAccount, gh.copilotAccount ?? '');
+      populateAccountSelect(configDefaultAccount, gh.defaultAccount ?? '');
+
+      ownerAccountsList.innerHTML = '';
+      Object.entries(gh.ownerAccounts ?? {}).forEach(([owner, account]) => {
+        addOwnerAccountRow(owner, account);
+      });
+
+      scanPathsList.innerHTML = '';
+      (cfg.scanPaths ?? []).forEach(p => addScanPathRow(p));
+
+      gitlabTokensList.innerHTML = '';
+      (cfg.gitlab?.hosts ?? []).forEach(host => addGitlabTokenRow(host, true));
+    }
+
+    function addOwnerAccountRow(owner = '', account = '') {
+      const row = document.createElement('div');
+      row.className = 'owner-account-row';
+
+      const ownerInput = document.createElement('input');
+      ownerInput.type = 'text';
+      ownerInput.value = owner;
+      ownerInput.placeholder = 'org or username';
+
+      const arrow = document.createElement('span');
+      arrow.textContent = '→';
+
+      const accountSelect = document.createElement('select');
+      populateAccountSelect(accountSelect, account);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => row.remove());
+
+      row.append(ownerInput, arrow, accountSelect, removeBtn);
+      ownerAccountsList.appendChild(row);
+    }
+
+    addOwnerAccountBtn.addEventListener('click', () => addOwnerAccountRow());
+
+    function addGitlabTokenRow(host = '', configured = false) {
+      const row = document.createElement('div');
+      row.className = 'owner-account-row';
+      row.dataset.existing = configured ? '1' : '0';
+
+      const hostInput = document.createElement('input');
+      hostInput.type = 'text';
+      hostInput.value = host;
+      hostInput.placeholder = 'gitlab.veeam.com';
+      hostInput.className = 'gitlab-host';
+
+      const arrow = document.createElement('span');
+      arrow.textContent = '→';
+
+      const tokenInput = document.createElement('input');
+      tokenInput.type = 'password';
+      tokenInput.placeholder = configured ? '(saved — type to replace)' : 'glpat-…';
+      tokenInput.autocomplete = 'new-password';
+      tokenInput.className = 'gitlab-token';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => {
+        if (configured) {
+          tokenInput.value = '';
+          tokenInput.dataset.deleted = '1';
+          row.style.opacity = '0.5';
+          removeBtn.disabled = true;
+        } else {
+          row.remove();
+        }
+      });
+
+      row.append(hostInput, arrow, tokenInput, removeBtn);
+      gitlabTokensList.appendChild(row);
+    }
+
+    addGitlabTokenBtn.addEventListener('click', () => addGitlabTokenRow());
+
+    function addScanPathRow(value = '') {
+      const row = document.createElement('div');
+      row.className = 'scan-path-row';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = value;
+      input.placeholder = '/Users/me/projects';
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => row.remove());
+      row.appendChild(input);
+      row.appendChild(removeBtn);
+      scanPathsList.appendChild(row);
+    }
+
+    addScanPathBtn.addEventListener('click', () => addScanPathRow());
+
+    configSaveBtn.addEventListener('click', async () => {
+      const paths = [...scanPathsList.querySelectorAll('input')]
+        .map(i => i.value.trim())
+        .filter(Boolean);
+
+      const depth = parseInt(configDepth.value, 10);
+
+      const ownerAccounts = {};
+      ownerAccountsList.querySelectorAll('.owner-account-row').forEach(row => {
+        const owner = row.querySelector('input').value.trim().toLowerCase();
+        const account = row.querySelector('select').value.trim();
+        if (owner && account) ownerAccounts[owner] = account;
+      });
+
+      const gitlabTokens = {};
+      gitlabTokensList.querySelectorAll('.owner-account-row').forEach(row => {
+        const host = row.querySelector('.gitlab-host').value.trim();
+        if (!host) return;
+        const tokenEl = row.querySelector('.gitlab-token');
+        const token = tokenEl.value;
+        const wasExisting = row.dataset.existing === '1';
+        const deleted = tokenEl.dataset.deleted === '1';
+        if (deleted) {
+          gitlabTokens[host] = '';
+        } else if (token) {
+          gitlabTokens[host] = token;
+        } else if (!wasExisting) {
+          // new row with empty token — skip
+        }
+      });
+
+      const updates = {
+        scanPaths: paths,
+        scanDepth: isNaN(depth) ? 3 : depth,
+        github: {
+          copilotAccount: configCopilotAccount.value || undefined,
+          defaultAccount: configDefaultAccount.value || undefined,
+          ownerAccounts,
+        },
+        gitlab: {
+          tokens: gitlabTokens,
+        },
+      };
+
+      configSaveBtn.disabled = true;
+      try {
+        const resp = await fetch('/api/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+        if (resp.ok) {
+          configSaveStatus.textContent = 'Saved';
+          setTimeout(() => { configSaveStatus.textContent = ''; }, 2000);
+          await loadRepos();
+        } else {
+          const data = await resp.json();
+          configSaveStatus.style.color = 'var(--error)';
+          configSaveStatus.textContent = data.error?.message || 'Save failed';
+          setTimeout(() => {
+            configSaveStatus.style.color = 'var(--accent-green)';
+            configSaveStatus.textContent = '';
+          }, 3000);
+        }
+      } catch (err) {
+        configSaveStatus.style.color = 'var(--error)';
+        configSaveStatus.textContent = err.message;
+      } finally {
+        configSaveBtn.disabled = false;
+      }
+    });
+
+    // PWA install
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstall = e;
+      const dismissed = localStorage.getItem('install_dismissed');
+      if (!dismissed) {
+        installPrompt.classList.add('visible');
+      }
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (!deferredInstall) return;
+      deferredInstall.prompt();
+      const choice = await deferredInstall.userChoice;
+      installPrompt.classList.remove('visible');
+      if (choice.outcome === 'dismissed') {
+        localStorage.setItem('install_dismissed', '1');
+      }
+      deferredInstall = null;
+    });
+
+    // Service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => {
+        console.warn('SW registration failed:', err);
+      });
+    }
+
+    // Init
+    checkHealth();
+    loadRepos();
+    healthInterval = setInterval(checkHealth, 30000);
+  </script>
+
+  <!-- ── Repos view script ──────────────────────────────────────────────── -->
+  <script>
+    // ── Shared state for Repos view ─────────────────────────────────────────
+    const glassState = {
+      activeView: 'feedback',
+      repos: {
+        items: [],
+        filter: localStorage.getItem('glass.repos.filter') || 'all',
+        autoRefreshSec: 0,
+        loaded: false,
+        aiAvailable: false,
+      },
+      leaderboard: {
+        window: '30d',
+        loaded: false,
+        loading: false,
+        data: null,
+        sortKey: 'score',
+        sortDir: 'desc',
+      },
+      deleteTarget: null,   // { path, name }
+      commitTarget: null,   // { path, name }
+    };
+
+    let glassAutoRefreshTimer = null;
+
+    // ── Tab switching ────────────────────────────────────────────────────────
+
+    function setActiveView(v) {
+      glassState.activeView = v;
+      localStorage.setItem('glass.activeView', v);
+
+      const feedbackView = document.getElementById('view-feedback');
+      const reposView = document.getElementById('view-repos');
+      const leaderboardView = document.getElementById('view-leaderboard');
+      const tabFeedback = document.getElementById('glass-tab-feedback');
+      const tabRepos = document.getElementById('glass-tab-repos');
+      const tabLeaderboard = document.getElementById('glass-tab-leaderboard');
+
+      feedbackView.hidden = v !== 'feedback';
+      reposView.hidden = v !== 'repos';
+      leaderboardView.hidden = v !== 'leaderboard';
+
+      tabFeedback.setAttribute('aria-selected', v === 'feedback' ? 'true' : 'false');
+      tabFeedback.setAttribute('tabindex', v === 'feedback' ? '0' : '-1');
+      tabRepos.setAttribute('aria-selected', v === 'repos' ? 'true' : 'false');
+      tabRepos.setAttribute('tabindex', v === 'repos' ? '0' : '-1');
+      tabLeaderboard.setAttribute('aria-selected', v === 'leaderboard' ? 'true' : 'false');
+      tabLeaderboard.setAttribute('tabindex', v === 'leaderboard' ? '0' : '-1');
+
+      if (v === 'repos') {
+        glassStartAutoRefresh();
+        if (!glassState.repos.loaded) {
+          glassLoadRepos();
+        }
+      } else {
+        glassStopAutoRefresh();
+      }
+
+      if (v === 'leaderboard') {
+        if (!glassState.leaderboard.loaded) glassLoadLeaderboard();
+        glassStartLeaderboardAutoRefresh();
+      } else {
+        glassStopLeaderboardAutoRefresh();
+      }
+    }
+
+    // Tab click handlers
+    document.getElementById('glass-tab-feedback').addEventListener('click', () => setActiveView('feedback'));
+    document.getElementById('glass-tab-repos').addEventListener('click', () => setActiveView('repos'));
+    document.getElementById('glass-tab-leaderboard').addEventListener('click', () => setActiveView('leaderboard'));
+
+    // Arrow key navigation on tab bar (roving tabindex)
+    document.getElementById('glass-tabbar').addEventListener('keydown', (e) => {
+      const tabs = ['glass-tab-feedback', 'glass-tab-repos', 'glass-tab-leaderboard'];
+      const idx = tabs.indexOf(document.activeElement.id);
+      if (idx === -1) return;
+      if (e.key === 'ArrowRight') {
+        const next = tabs[(idx + 1) % tabs.length];
+        document.getElementById(next).focus();
+        e.preventDefault();
+      } else if (e.key === 'ArrowLeft') {
+        const prev = tabs[(idx - 1 + tabs.length) % tabs.length];
+        document.getElementById(prev).focus();
+        e.preventDefault();
+      }
+    });
+
+    // Cmd+1 / Cmd+2 / Cmd+3 global shortcuts
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '1') { e.preventDefault(); setActiveView('feedback'); }
+      if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); setActiveView('repos'); }
+      if ((e.metaKey || e.ctrlKey) && e.key === '3') { e.preventDefault(); setActiveView('leaderboard'); }
+    });
+
+    // ── Banner ───────────────────────────────────────────────────────────────
+
+    let glassBannerTimer = null;
+    function showGlassBanner(msg, variant = 'info', ms = 4000) {
+      const el = document.getElementById('glass-banner');
+      el.textContent = msg;
+      el.className = `glass-banner-${variant}`;
+      el.hidden = false;
+      clearTimeout(glassBannerTimer);
+      glassBannerTimer = setTimeout(() => { el.hidden = true; }, ms);
+    }
+
+    // ── API helper ───────────────────────────────────────────────────────────
+
+    async function glassApi(path, body) {
+      const opts = body
+        ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+        : { method: 'GET' };
+      const resp = await fetch(path, opts);
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error?.message || data.error || 'Request failed');
+      return data;
+    }
+
+    // ── Leaderboard helpers ───────────────────────────────────────────────────
+
+    function glassFormatUSD(cents) {
+      const dollars = (cents || 0) / 100;
+      return '$' + dollars.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function glassLeaderboardRelativeDate(iso) {
+      if (!iso) return '';
+      const now = Date.now();
+      const diff = Math.floor((now - new Date(iso).getTime()) / 1000);
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+      if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+      if (diff < 86400 * 30) return Math.floor(diff / 86400) + 'd ago';
+      if (diff < 86400 * 365) return Math.floor(diff / (86400 * 30)) + 'mo ago';
+      return Math.floor(diff / (86400 * 365)) + 'y ago';
+    }
+
+    const GLASS_LEADERBOARD_SORT_KEYS = {
+      score:   (r) => r.score,
+      commits: (r) => r.commits,
+      lines:   (r) => (r.additions || 0) + (r.deletions || 0),
+      date:    (r) => r.lastCommitDate ? new Date(r.lastCommitDate).getTime() : 0,
+      cost:    (r) => r.claudeCostCents || 0,
+    };
+
+    function glassSortLeaderboardRows(repos, key, dir) {
+      const getKey = GLASS_LEADERBOARD_SORT_KEYS[key] || GLASS_LEADERBOARD_SORT_KEYS.score;
+      const mult = dir === 'asc' ? 1 : -1;
+      return [...repos].sort((a, b) => {
+        const diff = getKey(a) - getKey(b);
+        if (diff !== 0) return diff * mult;
+        // Tie-break by lastCommitDate descending
+        const da = a.lastCommitDate ? new Date(a.lastCommitDate).getTime() : 0;
+        const db = b.lastCommitDate ? new Date(b.lastCommitDate).getTime() : 0;
+        return db - da;
+      });
+    }
+
+    function glassUpdateSortHeaders() {
+      const { sortKey, sortDir } = glassState.leaderboard;
+      document.querySelectorAll('.glass-leaderboard-h--sortable').forEach((h) => {
+        if (h.dataset.sort === sortKey) {
+          h.setAttribute('aria-sort', sortDir === 'asc' ? 'ascending' : 'descending');
+        } else {
+          h.setAttribute('aria-sort', 'none');
+        }
+      });
+    }
+
+    function glassRenderLeaderboard(data) {
+      const list = document.getElementById('glass-leaderboard-list');
+      const loading = document.getElementById('glass-leaderboard-loading');
+      const empty = document.getElementById('glass-leaderboard-empty');
+
+      loading.hidden = true;
+
+      Array.from(list.querySelectorAll('.glass-leaderboard-row')).forEach(r => r.remove());
+
+      if (!data || !data.repos || data.repos.length === 0 || data.repos.every(r => r.commits === 0 && !r.error)) {
+        empty.hidden = false;
+        glassUpdateSortHeaders();
+        return;
+      }
+      empty.hidden = true;
+
+      const { sortKey, sortDir } = glassState.leaderboard;
+      const sorted = glassSortLeaderboardRows(data.repos, sortKey, sortDir);
+      glassUpdateSortHeaders();
+
+      sorted.forEach((repo, i) => {
+        const rank = i + 1;
+        const rankClass = rank <= 3 ? 'glass-leaderboard-rank glass-leaderboard-rank--top' : 'glass-leaderboard-rank';
+        const score = Math.round(repo.score * 10) / 10;
+        const relDate = glassLeaderboardRelativeDate(repo.lastCommitDate);
+        const cents = repo.claudeCostCents || 0;
+        const costClass = cents > 0 ? 'glass-leaderboard-cost' : 'glass-leaderboard-cost glass-leaderboard-cost--zero';
+        const costLabel = glassFormatUSD(cents);
+
+        const row = document.createElement('div');
+        row.className = 'glass-leaderboard-row';
+        row.setAttribute('data-path', repo.path || '');
+
+        let inner = `
+          <span class="${rankClass}">#${rank}</span>
+          <span class="glass-leaderboard-name" title="${escapeHtml(repo.path || '')}">${escapeHtml(repo.name)}</span>
+          <span class="glass-leaderboard-score" data-score="${score}">${score} pts</span>
+          <span class="glass-leaderboard-commits">${repo.commits} commits</span>
+          <span class="glass-leaderboard-lines">+${repo.additions} &minus;${repo.deletions}</span>
+          <span class="glass-leaderboard-date" title="${escapeHtml(repo.lastCommitDate || '')}">${escapeHtml(relDate)}</span>
+          <span class="${costClass}" title="Claude API spend (month-to-date)">${costLabel}</span>
+        `;
+        if (repo.error) {
+          inner += `<span class="glass-leaderboard-error">${escapeHtml(repo.error)}</span>`;
+        }
+        row.innerHTML = inner;
+        list.appendChild(row);
+      });
+    }
+
+    async function glassLoadLeaderboard(forceWindow, opts) {
+      if (glassState.leaderboard.loading) return;
+      const win = forceWindow || glassState.leaderboard.window;
+      const silent = !!(opts && opts.silent);
+
+      glassState.leaderboard.loading = true;
+
+      document.querySelectorAll('.glass-leaderboard-window').forEach(btn => {
+        const pressed = btn.dataset.window === win;
+        btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+        btn.classList.toggle('glass-leaderboard-window--active', pressed);
+      });
+
+      const loading = document.getElementById('glass-leaderboard-loading');
+      const empty = document.getElementById('glass-leaderboard-empty');
+      if (!silent) {
+        loading.hidden = false;
+        empty.hidden = true;
+        Array.from(document.querySelectorAll('.glass-leaderboard-row')).forEach(r => r.remove());
+      }
+
+      const url = `/api/leaderboard?window=${encodeURIComponent(win)}`;
+      try {
+        let data;
+        try {
+          data = await glassApi(url);
+        } catch (firstErr) {
+          await new Promise(r => setTimeout(r, 1500));
+          data = await glassApi(url);
+        }
+        glassState.leaderboard.window = win;
+        glassState.leaderboard.loaded = true;
+        glassState.leaderboard.data = data;
+        glassRenderLeaderboard(data);
+      } catch (e) {
+        if (!silent) {
+          loading.hidden = true;
+          showGlassBanner('Leaderboard failed: ' + e.message, 'error');
+        }
+      } finally {
+        glassState.leaderboard.loading = false;
+      }
+    }
+
+    // Background refresh while Leaderboard view is active
+    let glassLeaderboardRefreshTimer = null;
+    const GLASS_LEADERBOARD_REFRESH_SEC = 60;
+    function glassStartLeaderboardAutoRefresh() {
+      glassStopLeaderboardAutoRefresh();
+      glassLeaderboardRefreshTimer = setInterval(() => {
+        if (glassState.activeView === 'leaderboard' && !document.hidden) {
+          glassLoadLeaderboard(undefined, { silent: true });
+        }
+      }, GLASS_LEADERBOARD_REFRESH_SEC * 1000);
+    }
+    function glassStopLeaderboardAutoRefresh() {
+      if (glassLeaderboardRefreshTimer) {
+        clearInterval(glassLeaderboardRefreshTimer);
+        glassLeaderboardRefreshTimer = null;
+      }
+    }
+
+    document.querySelectorAll('.glass-leaderboard-window').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const win = btn.dataset.window;
+        if (!win || win === glassState.leaderboard.window) return;
+        glassLoadLeaderboard(win);
+      });
+    });
+
+    document.querySelectorAll('.glass-leaderboard-h--sortable').forEach(h => {
+      h.addEventListener('click', () => {
+        const key = h.dataset.sort;
+        if (!key) return;
+        const lb = glassState.leaderboard;
+        if (lb.sortKey === key) {
+          lb.sortDir = lb.sortDir === 'desc' ? 'asc' : 'desc';
+        } else {
+          lb.sortKey = key;
+          lb.sortDir = 'desc';
+        }
+        if (lb.data) glassRenderLeaderboard(lb.data);
+      });
+    });
+
+    // ── Load & render repos ──────────────────────────────────────────────────
+
+    async function glassLoadRepos() {
+      const grid = document.getElementById('glass-repos-grid');
+      grid.innerHTML = '<div class="glass-repos-empty"><span class="spinner" style="width:20px;height:20px;"></span> Scanning...</div>';
+      try {
+        const items = await glassApi('/api/git/repos');
+        glassState.repos.items = items;
+        glassState.repos.loaded = true;
+        glassRenderGrid();
+        await glassCheckAI();
+      } catch (e) {
+        grid.innerHTML = `<div class="glass-repos-empty" style="color:var(--error)">Failed to load repos: ${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    function glassCheckAI() {
+      glassState.repos.aiAvailable = true;
+      const aiBtn = document.getElementById('glass-ai-triage-btn');
+      if (aiBtn) aiBtn.style.display = '';
+    }
+
+    function glassGetCardClass(repo) {
+      if (repo.error) return 'glass-card-error';
+      if (repo.uncommitted > 0) return 'glass-card-dirty';
+      if (repo.ahead > 0 || repo.behind > 0) return 'glass-card-pending';
+      return 'glass-card-clean';
+    }
+
+    function glassDaysSince(isoDate) {
+      if (!isoDate) return Infinity;
+      return Math.floor((Date.now() - new Date(isoDate).getTime()) / 86400000);
+    }
+
+    // Convert a git remote URL to a browser-openable web URL.
+    // - SSH:   git@host:owner/repo(.git)        → https://host/owner/repo
+    // - HTTPS: https://host/owner/repo(.git)    → https://host/owner/repo
+    // GitLab subgroups (owner/subgroup/repo) are preserved. Returns null if unparseable.
+    function glassRemoteToWebUrl(remote) {
+      if (!remote || typeof remote !== 'string') return null;
+      const trimmed = remote.trim().replace(/\.git$/i, '');
+      let m = trimmed.match(/^git@([^:]+):(.+)$/);
+      if (m) return 'https://' + m[1] + '/' + m[2];
+      m = trimmed.match(/^ssh:\/\/(?:[^@]+@)?([^/:]+)(?::\d+)?\/(.+)$/);
+      if (m) return 'https://' + m[1] + '/' + m[2];
+      m = trimmed.match(/^https?:\/\/.+/);
+      if (m) return trimmed;
+      return null;
+    }
+
+    function glassBranchIssues(repo) {
+      if (!repo.branches || repo.branches.length <= 1) return [];
+      return repo.branches.filter(b => b.name !== repo.branch && (b.ahead > 0 || !b.upstream || b.gone));
+    }
+
+    function glassFilterItems(items, filter) {
+      switch (filter) {
+        case 'dirty': return items.filter(r => r.uncommitted > 0);
+        case 'pending': return items.filter(r => r.ahead > 0 || r.behind > 0);
+        case 'clean': return items.filter(r => !r.error && r.uncommitted === 0 && r.ahead === 0 && r.behind === 0);
+        case 'no-remote': return items.filter(r => !r.hasRemote);
+        case 'branch-issues': return items.filter(r => glassBranchIssues(r).length > 0);
+        case 'stale': return items.filter(r => glassDaysSince(r.lastCommitDate) >= 30);
+        case 'error': return items.filter(r => r.error);
+        default: return items;
+      }
+    }
+
+    function glassUpdateCounts(items) {
+      const counts = {
+        all: items.length,
+        dirty: items.filter(r => r.uncommitted > 0).length,
+        pending: items.filter(r => r.ahead > 0 || r.behind > 0).length,
+        clean: items.filter(r => !r.error && r.uncommitted === 0 && r.ahead === 0 && r.behind === 0).length,
+        'no-remote': items.filter(r => !r.hasRemote).length,
+        'branch-issues': items.filter(r => glassBranchIssues(r).length > 0).length,
+        stale: items.filter(r => glassDaysSince(r.lastCommitDate) >= 30).length,
+        error: items.filter(r => r.error).length,
+      };
+      for (const [key, count] of Object.entries(counts)) {
+        const el = document.getElementById(`glass-count-${key}`);
+        if (el) el.textContent = `(${count})`;
+      }
+
+      // Update pull-all-safe button
+      const safePullable = items.filter(r => r.behind > 0 && r.uncommitted === 0 && !r.error).length;
+      const pullAllBtn = document.getElementById('glass-pull-all-btn');
+      pullAllBtn.disabled = safePullable === 0;
+      pullAllBtn.textContent = safePullable > 0 ? `Pull All Safe (${safePullable})` : 'Pull All Safe';
+    }
+
+    function glassRenderGrid() {
+      const items = glassState.repos.items;
+      glassUpdateCounts(items);
+
+      // Update active chip
+      document.querySelectorAll('.glass-chip').forEach(chip => {
+        chip.setAttribute('aria-pressed', chip.dataset.filter === glassState.repos.filter ? 'true' : 'false');
+      });
+
+      const filtered = glassFilterItems(items, glassState.repos.filter);
+      const grid = document.getElementById('glass-repos-grid');
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div class="glass-repos-empty">No repos match this filter.</div>';
+        return;
+      }
+
+      grid.innerHTML = '';
+      for (const repo of filtered) {
+        const card = glassRenderCard(repo);
+        grid.appendChild(card);
+      }
+    }
+
+    function glassRenderCard(repo) {
+      const esc = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const card = document.createElement('div');
+      card.className = `glass-repo-card ${glassGetCardClass(repo)}`;
+      card.setAttribute('tabindex', '0');
+      card.dataset.path = repo.path;
+      card.dataset.name = repo.name;
+
+      // Header
+      const header = document.createElement('div');
+      header.className = 'glass-card-header';
+      header.innerHTML = `<span class="glass-card-name">${esc(repo.name)}</span><span class="glass-card-branch">${esc(repo.branch || '?')}</span>`;
+      card.appendChild(header);
+
+      // Badges
+      const badges = document.createElement('div');
+      badges.className = 'glass-badges';
+      if (repo.error) {
+        badges.innerHTML = `<span class="glass-badge glass-badge-error">Error</span>`;
+      } else {
+        if (repo.uncommitted > 0) {
+          badges.innerHTML += `<span class="glass-badge glass-badge-uncommitted">${repo.uncommitted} uncommitted</span>`;
+        }
+        if (repo.ahead > 0 && repo.behind > 0) {
+          badges.innerHTML += `<span class="glass-badge glass-badge-sync">Up ${repo.ahead} Down ${repo.behind}</span>`;
+        } else if (repo.ahead > 0) {
+          badges.innerHTML += `<span class="glass-badge glass-badge-sync">Up ${repo.ahead} to push</span>`;
+        } else if (repo.behind > 0) {
+          badges.innerHTML += `<span class="glass-badge glass-badge-sync">Down ${repo.behind} to pull</span>`;
+        }
+        if (!repo.hasRemote) {
+          badges.innerHTML += `<span class="glass-badge glass-badge-no-remote">No remote</span>`;
+        }
+        if (repo.detached) {
+          badges.innerHTML += `<span class="glass-badge glass-badge-detached">Detached HEAD</span>`;
+        }
+      }
+
+      // Branch issues badge
+      const issues = glassBranchIssues(repo);
+      const cardDetailId = 'glass-br-' + repo.path.replace(/[^a-zA-Z0-9]/g, '-');
+      if (issues.length > 0) {
+        const issuesBadge = document.createElement('span');
+        issuesBadge.className = 'glass-badge glass-badge-branch-issues';
+        issuesBadge.textContent = `${issues.length} branch issue${issues.length > 1 ? 's' : ''}`;
+        issuesBadge.addEventListener('click', () => {
+          document.getElementById(cardDetailId)?.classList.toggle('open');
+        });
+        badges.appendChild(issuesBadge);
+      }
+      card.appendChild(badges);
+
+      // Branch detail
+      if (issues.length > 0) {
+        const detail = document.createElement('div');
+        detail.className = 'glass-branch-detail';
+        detail.id = cardDetailId;
+        for (const b of issues) {
+          const row = document.createElement('div');
+          row.className = 'glass-branch-detail-row';
+          let tags = '';
+          if (b.gone) tags += '<span class="glass-br-tag glass-gone">upstream gone</span>';
+          else if (!b.upstream) tags += '<span class="glass-br-tag glass-no-upstream">no upstream</span>';
+          if (b.ahead > 0) tags += `<span class="glass-br-tag glass-unpushed">${b.ahead} unpushed</span>`;
+          if (b.behind > 0) tags += `<span class="glass-br-tag glass-behind">${b.behind} behind</span>`;
+          row.innerHTML = `<span class="glass-br-name">${esc(b.name)}</span><span>${tags}</span>`;
+          detail.appendChild(row);
+        }
+        card.appendChild(detail);
+      }
+
+      // Last commit
+      if (repo.lastCommitDate) {
+        const days = glassDaysSince(repo.lastCommitDate);
+        const ago = days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+        const staleClass = days >= 90 ? ' glass-stale-danger' : days >= 30 ? ' glass-stale-warn' : '';
+        const lc = document.createElement('div');
+        lc.className = `glass-last-commit${staleClass}`;
+        lc.textContent = `Last commit: ${ago}`;
+        card.appendChild(lc);
+      }
+
+      // Actions
+      const actions = document.createElement('div');
+      actions.className = 'glass-card-actions';
+
+      if (repo.behind > 0) {
+        const pullBtn = document.createElement('button');
+        pullBtn.className = 'glass-action-btn glass-pull-btn';
+        pullBtn.textContent = 'Pull';
+        pullBtn.setAttribute('aria-label', `Pull ${repo.name}`);
+        pullBtn.addEventListener('click', () => glassRepoPull(repo.path, pullBtn));
+        actions.appendChild(pullBtn);
+      }
+      if (repo.ahead > 0) {
+        const pushBtn = document.createElement('button');
+        pushBtn.className = 'glass-action-btn glass-push-btn';
+        pushBtn.textContent = 'Push';
+        pushBtn.setAttribute('aria-label', `Push ${repo.name}`);
+        pushBtn.addEventListener('click', () => glassRepoPush(repo.path, pushBtn));
+        actions.appendChild(pushBtn);
+      }
+      if (repo.uncommitted > 0) {
+        const aiMsgBtn = document.createElement('button');
+        aiMsgBtn.className = 'glass-action-btn glass-ai-btn';
+        aiMsgBtn.textContent = 'AI Msg';
+        aiMsgBtn.setAttribute('aria-label', `Generate AI commit message for ${repo.name}`);
+        aiMsgBtn.addEventListener('click', () => glassOpenCommitModal(repo.path, repo.name, aiMsgBtn));
+        actions.appendChild(aiMsgBtn);
+      }
+
+      const webUrl = glassRemoteToWebUrl(repo.remoteUrl);
+      if (webUrl) {
+        const browserBtn = document.createElement('button');
+        browserBtn.className = 'glass-action-btn';
+        browserBtn.textContent = 'Browser';
+        browserBtn.setAttribute('aria-label', `Open ${repo.name} in browser`);
+        browserBtn.title = webUrl;
+        browserBtn.addEventListener('click', () => window.open(webUrl, '_blank', 'noopener,noreferrer'));
+        actions.appendChild(browserBtn);
+      }
+
+      // Overflow menu
+      const overflow = document.createElement('div');
+      overflow.className = 'glass-card-overflow';
+      const overflowId = 'glass-of-' + repo.path.replace(/[^a-zA-Z0-9]/g, '-');
+      overflow.innerHTML = `
+        <button class="glass-overflow-btn" aria-label="More actions for ${esc(repo.name)}" aria-haspopup="true" aria-expanded="false">...</button>
+        <div class="glass-overflow-menu" id="${overflowId}" role="menu">
+          <button data-action="vscode" role="menuitem">Open in VS Code</button>
+          <button data-action="reveal" role="menuitem">Reveal in Finder</button>
+          <button data-action="ignore" role="menuitem">Ignore</button>
+          <button data-action="delete" role="menuitem" class="glass-danger-item">Delete</button>
+        </div>
+      `;
+      const overflowBtn = overflow.querySelector('.glass-overflow-btn');
+      const overflowMenu = overflow.querySelector('.glass-overflow-menu');
+      overflowBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = overflowMenu.classList.contains('open');
+        document.querySelectorAll('.glass-overflow-menu.open').forEach(m => m.classList.remove('open'));
+        if (!isOpen) {
+          overflowMenu.classList.add('open');
+          overflowBtn.setAttribute('aria-expanded', 'true');
+        }
+      });
+      overflowMenu.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        overflowMenu.classList.remove('open');
+        overflowBtn.setAttribute('aria-expanded', 'false');
+        const action = btn.dataset.action;
+        if (action === 'vscode') glassOpenVSCode(repo.path);
+        else if (action === 'reveal') glassReveal(repo.path);
+        else if (action === 'ignore') glassIgnoreRepo(repo.path);
+        else if (action === 'delete') glassOpenDeleteModal(repo.path, repo.name, overflowBtn);
+      });
+      actions.appendChild(overflow);
+      card.appendChild(actions);
+
+      return card;
+    }
+
+    // Close overflow menus on outside click
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.glass-overflow-menu.open').forEach(m => {
+        m.classList.remove('open');
+        m.previousElementSibling?.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    // ── Filter chips ─────────────────────────────────────────────────────────
+
+    document.getElementById('glass-chips-bar').addEventListener('click', (e) => {
+      const chip = e.target.closest('.glass-chip');
+      if (!chip) return;
+      glassState.repos.filter = chip.dataset.filter;
+      localStorage.setItem('glass.repos.filter', glassState.repos.filter);
+      glassRenderGrid();
+    });
+
+    // ── Toolbar actions ──────────────────────────────────────────────────────
+
+    document.getElementById('glass-refresh-btn').addEventListener('click', glassLoadRepos);
+
+    document.getElementById('glass-pull-all-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('glass-pull-all-btn');
+      btn.disabled = true;
+      btn.textContent = 'Pulling...';
+      showGlassBanner('Pulling all safe repos...', 'info');
+      try {
+        const data = await glassApi('/api/git/pull-all-safe', {});
+        const ok = data.results.filter(r => r.ok).length;
+        const fail = data.results.filter(r => !r.ok).length;
+        const msg = `Pull All: ${ok}/${data.total} succeeded${fail > 0 ? '. Some failed — check logs.' : '.'}`;
+        showGlassBanner(msg, fail > 0 ? 'error' : 'success');
+        glassLoadRepos();
+      } catch (e) {
+        showGlassBanner('Pull All failed: ' + e.message, 'error');
+      }
+    });
+
+    document.getElementById('glass-autorefresh-select').addEventListener('change', (e) => {
+      glassState.repos.autoRefreshSec = parseInt(e.target.value, 10) || 0;
+      localStorage.setItem('glass.repos.autoRefreshSec', String(glassState.repos.autoRefreshSec));
+      glassStopAutoRefresh();
+      glassStartAutoRefresh();
+    });
+
+    document.getElementById('glass-ai-triage-btn').addEventListener('click', glassOpenTriageModal);
+
+    document.getElementById('glass-show-ignored-btn').addEventListener('click', glassOpenIgnoredPanel);
+
+    // ── Toolbar overflow menu (server self-management) ───────────────────────
+    (() => {
+      const wrap = document.getElementById('glass-toolbar-overflow');
+      const btn = document.getElementById('glass-toolbar-overflow-btn');
+      const menu = document.getElementById('glass-toolbar-overflow-menu');
+      if (!wrap || !btn || !menu) return;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = menu.classList.contains('open');
+        document.querySelectorAll('.glass-overflow-menu.open').forEach(m => m.classList.remove('open'));
+        if (!isOpen) {
+          menu.classList.add('open');
+          btn.setAttribute('aria-expanded', 'true');
+        }
+      });
+      menu.addEventListener('click', async (e) => {
+        const item = e.target.closest('[data-action]');
+        if (!item) return;
+        menu.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+        const action = item.dataset.action;
+        if (action === 'check-updates') {
+          showGlassBanner('Checking for updates...', 'info');
+          try {
+            const data = await glassApi('/api/update', {});
+            if (data.alreadyUpToDate) {
+              showGlassBanner('Already up to date.', 'success');
+            } else if (data.ok) {
+              const head = (data.output || '').split('\n')[0] || 'Updated.';
+              showGlassBanner('Updated: ' + head, 'success', 6000);
+            } else {
+              showGlassBanner('Update failed: ' + (data.output || 'unknown error'), 'error', 8000);
+            }
+          } catch (err) {
+            showGlassBanner('Update failed: ' + err.message, 'error');
+          }
+        } else if (action === 'restart') {
+          if (!confirm('Restart the server? This only works if installed via install.sh (LaunchAgent).')) return;
+          try {
+            await glassApi('/api/restart', {});
+            showGlassBanner('Server restarting... will reconnect shortly.', 'info', 10000);
+          } catch (err) {
+            showGlassBanner('Restart failed: ' + err.message, 'error');
+          }
+        }
+      });
+    })();
+
+    // ── Auto-refresh ─────────────────────────────────────────────────────────
+
+    function glassStartAutoRefresh() {
+      glassStopAutoRefresh();
+      const sec = glassState.repos.autoRefreshSec;
+      if (sec > 0 && glassState.activeView === 'repos') {
+        glassAutoRefreshTimer = setInterval(() => {
+          if (glassState.activeView === 'repos') glassLoadRepos();
+        }, sec * 1000);
+      }
+    }
+
+    function glassStopAutoRefresh() {
+      if (glassAutoRefreshTimer) {
+        clearInterval(glassAutoRefreshTimer);
+        glassAutoRefreshTimer = null;
+      }
+    }
+
+    // ── Repo actions ─────────────────────────────────────────────────────────
+
+    async function glassRepoPull(path, btn) {
+      const orig = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Pulling...';
+      try {
+        await glassApi('/api/git/pull', { path });
+        showGlassBanner('Pull successful', 'success');
+        glassLoadRepos();
+      } catch (e) {
+        showGlassBanner('Pull failed: ' + e.message, 'error');
+      } finally { btn.disabled = false; btn.textContent = orig; }
+    }
+
+    async function glassRepoPush(path, btn) {
+      const orig = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Pushing...';
+      try {
+        await glassApi('/api/git/push', { path });
+        showGlassBanner('Push successful', 'success');
+        glassLoadRepos();
+      } catch (e) {
+        showGlassBanner('Push failed: ' + e.message, 'error');
+      } finally { btn.disabled = false; btn.textContent = orig; }
+    }
+
+    async function glassOpenVSCode(path) {
+      try {
+        await glassApi('/api/git/open-vscode', { path });
+      } catch (e) {
+        showGlassBanner('VS Code open failed: ' + e.message, 'error');
+      }
+    }
+
+    async function glassReveal(path) {
+      try {
+        await glassApi('/api/git/reveal', { path });
+      } catch (e) {
+        showGlassBanner('Reveal failed: ' + e.message, 'error');
+      }
+    }
+
+    async function glassIgnoreRepo(path) {
+      try {
+        await glassApi('/api/git/ignore', { path });
+        showGlassBanner('Repository ignored', 'success');
+        glassLoadRepos();
+      } catch (e) {
+        showGlassBanner('Ignore failed: ' + e.message, 'error');
+      }
+    }
+
+    async function glassUnignoreRepo(path) {
+      try {
+        await glassApi('/api/git/unignore', { path });
+        showGlassBanner('Repository restored', 'success');
+        glassRefreshIgnoredPanel();
+        glassLoadRepos();
+      } catch (e) {
+        showGlassBanner('Unignore failed: ' + e.message, 'error');
+      }
+    }
+
+    // ── Modals ───────────────────────────────────────────────────────────────
+
+    let glassModalReturnFocus = null;
+
+    function glassOpenModal(overlayId, initialFocusEl) {
+      const overlay = document.getElementById(overlayId);
+      glassModalReturnFocus = document.activeElement;
+      overlay.classList.add('open');
+      // Focus trap setup
+      const focusable = overlay.querySelectorAll('button, input, textarea, [tabindex]:not([tabindex="-1"])');
+      if (initialFocusEl) {
+        initialFocusEl.focus();
+      } else if (focusable.length) {
+        focusable[0].focus();
+      }
+      overlay.addEventListener('keydown', glassTrapFocus);
+    }
+
+    function glassCloseModal(overlayId) {
+      const overlay = document.getElementById(overlayId);
+      overlay.classList.remove('open');
+      overlay.removeEventListener('keydown', glassTrapFocus);
+      if (glassModalReturnFocus) {
+        glassModalReturnFocus.focus();
+        glassModalReturnFocus = null;
+      }
+    }
+
+    function glassTrapFocus(e) {
+      if (e.key !== 'Tab') return;
+      const overlay = e.currentTarget;
+      const focusable = Array.from(overlay.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { last.focus(); e.preventDefault(); }
+      } else {
+        if (document.activeElement === last) { first.focus(); e.preventDefault(); }
+      }
+    }
+
+    // Escape closes any open modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (document.getElementById('glass-delete-modal').classList.contains('open')) glassCloseDeleteModal();
+      else if (document.getElementById('glass-commit-modal').classList.contains('open')) glassCloseCommitModal();
+      else if (document.getElementById('glass-triage-modal').classList.contains('open')) glassCloseTriageModal();
+      else if (document.getElementById('glass-ignored-panel').classList.contains('open')) glassCloseIgnoredPanel();
+    });
+
+    // ── Delete modal ─────────────────────────────────────────────────────────
+
+    function glassOpenDeleteModal(path, name, triggerEl) {
+      glassState.deleteTarget = { path, name };
+      document.getElementById('glass-delete-path').textContent = path;
+      const input = document.getElementById('glass-delete-confirm-input');
+      input.value = '';
+      document.getElementById('glass-delete-confirm-btn').disabled = true;
+      glassModalReturnFocus = triggerEl || document.activeElement;
+      glassOpenModal('glass-delete-modal', input);
+    }
+
+    document.getElementById('glass-delete-confirm-input').addEventListener('input', (e) => {
+      const target = glassState.deleteTarget;
+      const confirmBtn = document.getElementById('glass-delete-confirm-btn');
+      confirmBtn.disabled = !target || e.target.value !== target.name;
+    });
+
+    function glassCloseDeleteModal() {
+      glassCloseModal('glass-delete-modal');
+      glassState.deleteTarget = null;
+    }
+
+    document.getElementById('glass-delete-cancel-btn').addEventListener('click', glassCloseDeleteModal);
+
+    document.getElementById('glass-delete-confirm-btn').addEventListener('click', async () => {
+      const target = glassState.deleteTarget;
+      if (!target) return;
+      const btn = document.getElementById('glass-delete-confirm-btn');
+      btn.disabled = true; btn.textContent = 'Deleting...';
+      try {
+        await glassApi('/api/git/delete', { path: target.path });
+        glassCloseDeleteModal();
+        showGlassBanner(`Deleted: ${target.name}`, 'success');
+        glassLoadRepos();
+      } catch (e) {
+        showGlassBanner('Delete failed: ' + e.message, 'error');
+        btn.disabled = false; btn.textContent = 'Delete Forever';
+      }
+    });
+
+    // ── AI commit message modal ───────────────────────────────────────────────
+
+    async function glassOpenCommitModal(path, name, triggerEl) {
+      glassState.commitTarget = { path, name };
+      document.getElementById('glass-commit-repo-label').textContent = `${name} (${path})`;
+      const msgEl = document.getElementById('glass-commit-msg-text');
+      msgEl.textContent = 'Generating...';
+      glassModalReturnFocus = triggerEl || document.activeElement;
+      glassOpenModal('glass-commit-modal', document.getElementById('glass-commit-close-btn'));
+
+      try {
+        const data = await glassApi('/api/git/ai-commit-msg', { path });
+        msgEl.textContent = data.message;
+        document.getElementById('glass-commit-copy-btn').focus();
+      } catch (e) {
+        msgEl.textContent = '';
+        showGlassBanner('AI commit msg failed: ' + e.message, 'error');
+        glassCloseCommitModal();
+      }
+    }
+
+    function glassCloseCommitModal() { glassCloseModal('glass-commit-modal'); }
+
+    document.getElementById('glass-commit-close-btn').addEventListener('click', glassCloseCommitModal);
+
+    document.getElementById('glass-commit-copy-btn').addEventListener('click', async () => {
+      const text = document.getElementById('glass-commit-msg-text').textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        const btn = document.getElementById('glass-commit-copy-btn');
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 2000);
+      } catch {
+        showGlassBanner('Copy failed — select the text manually', 'error');
+      }
+    });
+
+    // ── AI triage modal ───────────────────────────────────────────────────────
+
+    async function glassOpenTriageModal() {
+      const outputEl = document.getElementById('glass-triage-output');
+      outputEl.textContent = 'Analyzing...';
+      glassOpenModal('glass-triage-modal', document.getElementById('glass-triage-close-btn'));
+      try {
+        const data = await glassApi('/api/git/ai-triage', {});
+        outputEl.textContent = data.triage;
+      } catch (e) {
+        outputEl.textContent = '';
+        glassCloseTriageModal();
+        showGlassBanner('AI triage failed: ' + e.message, 'error');
+      }
+    }
+
+    function glassCloseTriageModal() { glassCloseModal('glass-triage-modal'); }
+    document.getElementById('glass-triage-close-btn').addEventListener('click', glassCloseTriageModal);
+
+    // ── Ignored repos panel ───────────────────────────────────────────────────
+
+    async function glassOpenIgnoredPanel() {
+      document.getElementById('glass-ignored-panel').classList.add('open');
+      document.getElementById('glass-ignored-backdrop').classList.add('open');
+      await glassRefreshIgnoredPanel();
+      document.getElementById('glass-close-ignored-btn').focus();
+    }
+
+    function glassCloseIgnoredPanel() {
+      document.getElementById('glass-ignored-panel').classList.remove('open');
+      document.getElementById('glass-ignored-backdrop').classList.remove('open');
+    }
+
+    document.getElementById('glass-close-ignored-btn').addEventListener('click', glassCloseIgnoredPanel);
+    document.getElementById('glass-ignored-backdrop').addEventListener('click', glassCloseIgnoredPanel);
+
+    async function glassRefreshIgnoredPanel() {
+      const list = document.getElementById('glass-ignored-list');
+      list.innerHTML = '<div style="color:var(--muted);font-size:13px;">Loading...</div>';
+      try {
+        const data = await glassApi('/api/git/ignored');
+        const paths = data.ignoredRepos || [];
+        if (paths.length === 0) {
+          list.innerHTML = '<div style="color:var(--muted);font-size:13px;">No ignored repositories.</div>';
+          return;
+        }
+        list.innerHTML = '';
+        for (const path of paths) {
+          const name = path.split('/').pop();
+          const item = document.createElement('div');
+          item.className = 'glass-ignored-item';
+          item.innerHTML = `<span class="glass-ignored-path">${esc(path)}</span>`;
+          const restoreBtn = document.createElement('button');
+          restoreBtn.className = 'glass-action-btn';
+          restoreBtn.textContent = 'Restore';
+          restoreBtn.style.flexShrink = '0';
+          restoreBtn.addEventListener('click', () => glassUnignoreRepo(path));
+          item.appendChild(restoreBtn);
+          list.appendChild(item);
+        }
+      } catch (e) {
+        list.innerHTML = `<div style="color:var(--error);font-size:13px;">Failed to load: ${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    // ── Init Repos view ───────────────────────────────────────────────────────
+
+    (function glassInit() {
+      // Restore auto-refresh setting
+      const savedAutoRefresh = parseInt(localStorage.getItem('glass.repos.autoRefreshSec') || '0', 10);
+      if (savedAutoRefresh > 0) {
+        glassState.repos.autoRefreshSec = savedAutoRefresh;
+        const sel = document.getElementById('glass-autorefresh-select');
+        sel.value = String(savedAutoRefresh);
+      }
+
+      // Determine initial view from ?v= query param (manifest shortcuts) then localStorage
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlView = urlParams.get('v');
+      const stored = localStorage.getItem('glass.activeView');
+      const validViews = ['feedback', 'repos', 'leaderboard'];
+      const initialView = validViews.includes(urlView) ? urlView
+        : validViews.includes(stored) ? stored
+        : 'feedback';
+
+      // Strip query string
+      if (urlView) {
+        history.replaceState(null, '', window.location.pathname);
+      }
+
+      setActiveView(initialView);
+    })();
+  </script>
+</body>
+</html>

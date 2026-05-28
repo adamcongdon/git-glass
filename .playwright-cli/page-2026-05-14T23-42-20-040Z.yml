@@ -1,0 +1,98 @@
+- generic [ref=e1]:
+  - tablist "Application views" [ref=e2]:
+    - tab "Feedback" [ref=e3] [cursor=pointer]
+    - tab "Repos" [selected] [ref=e4] [cursor=pointer]
+    - tab "Leaderboard" [ref=e5] [cursor=pointer]
+    - button "Open settings" [ref=e6] [cursor=pointer]:
+      - img [ref=e7]
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - button "Refresh" [ref=e12] [cursor=pointer]:
+        - img [ref=e13]
+        - text: Refresh
+      - button "Pull All Safe (2)" [ref=e35] [cursor=pointer]
+      - generic [ref=e18]: "Auto:"
+      - combobox "Auto:" [ref=e19] [cursor=pointer]:
+        - option "Off" [selected]
+        - option "30s"
+        - option "1m"
+        - option "5m"
+        - option "15m"
+        - option "30m"
+      - button "AI Triage" [ref=e36] [cursor=pointer]
+      - button "Show Ignored" [ref=e20] [cursor=pointer]
+      - button "More server actions" [ref=e22] [cursor=pointer]: ⋯
+    - group "Filter repositories" [ref=e23]:
+      - button "All (36)" [ref=e37] [cursor=pointer]:
+        - text: All
+        - generic [ref=e38]: (36)
+      - button "Uncommitted (16)" [ref=e39] [cursor=pointer]:
+        - text: Uncommitted
+        - generic [ref=e40]: (16)
+      - button "Ahead/Behind (8)" [ref=e41] [cursor=pointer]:
+        - text: Ahead/Behind
+        - generic [ref=e42]: (8)
+      - button "Clean (17)" [ref=e43] [cursor=pointer]:
+        - text: Clean
+        - generic [ref=e44]: (17)
+      - button "No Remote (5)" [active] [pressed] [ref=e45] [cursor=pointer]:
+        - text: No Remote
+        - generic [ref=e46]: (5)
+      - button "Branch Issues (5)" [ref=e47] [cursor=pointer]:
+        - text: Branch Issues
+        - generic [ref=e48]: (5)
+      - button "Stale (16)" [ref=e49] [cursor=pointer]:
+        - text: Stale
+        - generic [ref=e50]: (16)
+      - button "Errors (0)" [ref=e51] [cursor=pointer]:
+        - text: Errors
+        - generic [ref=e52]: (0)
+    - generic [ref=e32]:
+      - generic [ref=e470]:
+        - generic [ref=e471]:
+          - generic [ref=e472]: org-mapper
+          - generic [ref=e473]: main
+        - generic [ref=e474]:
+          - generic [ref=e475]: 11 uncommitted
+          - generic [ref=e476]: No remote
+        - generic [ref=e477]: "Last commit: 83 days ago"
+        - generic [ref=e478]:
+          - button "Generate AI commit message for org-mapper" [ref=e479] [cursor=pointer]: AI Msg
+          - button "More actions for org-mapper" [ref=e481] [cursor=pointer]: ...
+      - generic [ref=e482]:
+        - generic [ref=e483]:
+          - generic [ref=e484]: VBR-Powershell-Migrate
+          - generic [ref=e485]: main
+        - generic [ref=e487]: No remote
+        - generic [ref=e488]: "Last commit: 6 days ago"
+        - button "More actions for VBR-Powershell-Migrate" [ref=e491] [cursor=pointer]: ...
+      - generic [ref=e492]:
+        - generic [ref=e493]:
+          - generic [ref=e494]: vhc-ai
+          - generic [ref=e495]: main
+        - generic [ref=e496]:
+          - generic [ref=e497]: 53 uncommitted
+          - generic [ref=e498]: No remote
+        - generic [ref=e499]: "Last commit: 97 days ago"
+        - generic [ref=e500]:
+          - button "Generate AI commit message for vhc-ai" [ref=e501] [cursor=pointer]: AI Msg
+          - button "More actions for vhc-ai" [ref=e503] [cursor=pointer]: ...
+      - generic [ref=e504]:
+        - generic [ref=e505]:
+          - generic [ref=e506]: vhc-ai-reader
+          - generic [ref=e507]: main
+        - generic [ref=e509]: No remote
+        - generic [ref=e510]: "Last commit: 28 days ago"
+        - button "More actions for vhc-ai-reader" [ref=e513] [cursor=pointer]: ...
+      - generic [ref=e514]:
+        - generic [ref=e515]:
+          - generic [ref=e516]: VHC-TestAgent
+          - generic [ref=e517]: main
+        - generic [ref=e518]:
+          - generic [ref=e519]: 1 uncommitted
+          - generic [ref=e520]: No remote
+        - generic [ref=e521]: "Last commit: 138 days ago"
+        - generic [ref=e522]:
+          - button "Generate AI commit message for VHC-TestAgent" [ref=e523] [cursor=pointer]: AI Msg
+          - button "More actions for VHC-TestAgent" [ref=e525] [cursor=pointer]: ...
+  - text: ▼

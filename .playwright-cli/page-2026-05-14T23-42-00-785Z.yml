@@ -1,0 +1,402 @@
+- generic [active] [ref=e1]:
+  - tablist "Application views" [ref=e2]:
+    - tab "Feedback" [ref=e3] [cursor=pointer]
+    - tab "Repos" [selected] [ref=e4] [cursor=pointer]
+    - tab "Leaderboard" [ref=e5] [cursor=pointer]
+    - button "Open settings" [ref=e6] [cursor=pointer]:
+      - img [ref=e7]
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - button "Refresh" [ref=e12] [cursor=pointer]:
+        - img [ref=e13]
+        - text: Refresh
+      - button "Pull All Safe (2)" [ref=e35] [cursor=pointer]
+      - generic [ref=e18]: "Auto:"
+      - combobox "Auto:" [ref=e19] [cursor=pointer]:
+        - option "Off" [selected]
+        - option "30s"
+        - option "1m"
+        - option "5m"
+        - option "15m"
+        - option "30m"
+      - button "AI Triage" [ref=e36] [cursor=pointer]
+      - button "Show Ignored" [ref=e20] [cursor=pointer]
+      - button "More server actions" [ref=e22] [cursor=pointer]: ⋯
+    - group "Filter repositories" [ref=e23]:
+      - button "All (36)" [pressed] [ref=e37] [cursor=pointer]:
+        - text: All
+        - generic [ref=e38]: (36)
+      - button "Uncommitted (16)" [ref=e39] [cursor=pointer]:
+        - text: Uncommitted
+        - generic [ref=e40]: (16)
+      - button "Ahead/Behind (8)" [ref=e41] [cursor=pointer]:
+        - text: Ahead/Behind
+        - generic [ref=e42]: (8)
+      - button "Clean (17)" [ref=e43] [cursor=pointer]:
+        - text: Clean
+        - generic [ref=e44]: (17)
+      - button "No Remote (5)" [ref=e45] [cursor=pointer]:
+        - text: No Remote
+        - generic [ref=e46]: (5)
+      - button "Branch Issues (5)" [ref=e47] [cursor=pointer]:
+        - text: Branch Issues
+        - generic [ref=e48]: (5)
+      - button "Stale (16)" [ref=e49] [cursor=pointer]:
+        - text: Stale
+        - generic [ref=e50]: (16)
+      - button "Errors (0)" [ref=e51] [cursor=pointer]:
+        - text: Errors
+        - generic [ref=e52]: (0)
+    - generic [ref=e32]:
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - generic [ref=e55]: atelier
+          - generic [ref=e56]: main
+        - generic [ref=e58]: 6 uncommitted
+        - generic [ref=e59]: "Last commit: 14 days ago"
+        - generic [ref=e60]:
+          - button "Generate AI commit message for atelier" [ref=e61] [cursor=pointer]: AI Msg
+          - button "Open atelier in browser" [ref=e62] [cursor=pointer]: Browser
+          - button "More actions for atelier" [ref=e64] [cursor=pointer]: ...
+      - generic [ref=e65]:
+        - generic [ref=e66]:
+          - generic [ref=e67]: auto-addt
+          - generic [ref=e68]: main
+        - generic [ref=e70]: "Last commit: today"
+        - generic [ref=e71]:
+          - button "Open auto-addt in browser" [ref=e72] [cursor=pointer]: Browser
+          - button "More actions for auto-addt" [ref=e74] [cursor=pointer]: ...
+      - generic [ref=e75]:
+        - generic [ref=e76]:
+          - generic [ref=e77]: blueprints
+          - generic [ref=e78]: main
+        - generic [ref=e80]: "Last commit: 43 days ago"
+        - generic [ref=e81]:
+          - button "Open blueprints in browser" [ref=e82] [cursor=pointer]: Browser
+          - button "More actions for blueprints" [ref=e84] [cursor=pointer]: ...
+      - generic [ref=e85]:
+        - generic [ref=e86]:
+          - generic [ref=e87]: calculator-web-mcp
+          - generic [ref=e88]: main
+        - generic [ref=e90]: "Last commit: 43 days ago"
+        - generic [ref=e91]:
+          - button "Open calculator-web-mcp in browser" [ref=e92] [cursor=pointer]: Browser
+          - button "More actions for calculator-web-mcp" [ref=e94] [cursor=pointer]: ...
+      - generic [ref=e95]:
+        - generic [ref=e96]:
+          - generic [ref=e97]: calculators-frontend-blazor
+          - generic [ref=e98]: cdp-update
+        - generic [ref=e99]:
+          - generic [ref=e100]: 3 uncommitted
+          - generic [ref=e101] [cursor=pointer]: 2 branch issues
+        - generic [ref=e102]: "Last commit: 52 days ago"
+        - generic [ref=e103]:
+          - button "Generate AI commit message for calculators-frontend-blazor" [ref=e104] [cursor=pointer]: AI Msg
+          - button "Open calculators-frontend-blazor in browser" [ref=e105] [cursor=pointer]: Browser
+          - button "More actions for calculators-frontend-blazor" [ref=e107] [cursor=pointer]: ...
+      - generic [ref=e108]:
+        - generic [ref=e109]:
+          - generic [ref=e110]: copilot-delegate
+          - generic [ref=e111]: main
+        - generic [ref=e113]: "Last commit: 43 days ago"
+        - generic [ref=e114]:
+          - button "Open copilot-delegate in browser" [ref=e115] [cursor=pointer]: Browser
+          - button "More actions for copilot-delegate" [ref=e117] [cursor=pointer]: ...
+      - generic [ref=e118]:
+        - generic [ref=e119]:
+          - generic [ref=e120]: Deal-IQ
+          - generic [ref=e121]: main
+        - generic [ref=e123]: "Last commit: 28 days ago"
+        - generic [ref=e124]:
+          - button "Open Deal-IQ in browser" [ref=e125] [cursor=pointer]: Browser
+          - button "More actions for Deal-IQ" [ref=e127] [cursor=pointer]: ...
+      - generic [ref=e128]:
+        - generic [ref=e129]:
+          - generic [ref=e130]: feedback-widget
+          - generic [ref=e131]: main
+        - generic [ref=e133]: 11 uncommitted
+        - generic [ref=e134]: "Last commit: 16 days ago"
+        - generic [ref=e135]:
+          - button "Generate AI commit message for feedback-widget" [ref=e136] [cursor=pointer]: AI Msg
+          - button "Open feedback-widget in browser" [ref=e137] [cursor=pointer]: Browser
+          - button "More actions for feedback-widget" [ref=e139] [cursor=pointer]: ...
+      - generic [ref=e140]:
+        - generic [ref=e141]:
+          - generic [ref=e142]: k8s-se-toolhub
+          - generic [ref=e143]: main
+        - generic [ref=e144]:
+          - generic [ref=e145]: 11 uncommitted
+          - generic [ref=e146]: Down 1 to pull
+        - generic [ref=e147]: "Last commit: 6 days ago"
+        - generic [ref=e148]:
+          - button "Pull k8s-se-toolhub" [ref=e149] [cursor=pointer]: Pull
+          - button "Generate AI commit message for k8s-se-toolhub" [ref=e150] [cursor=pointer]: AI Msg
+          - button "Open k8s-se-toolhub in browser" [ref=e151] [cursor=pointer]: Browser
+          - button "More actions for k8s-se-toolhub" [ref=e153] [cursor=pointer]: ...
+      - generic [ref=e154]:
+        - generic [ref=e155]:
+          - generic [ref=e156]: New-Vb365-Job-Manager
+          - generic [ref=e157]: main
+        - generic [ref=e159]: "Last commit: 43 days ago"
+        - generic [ref=e160]:
+          - button "Open New-Vb365-Job-Manager in browser" [ref=e161] [cursor=pointer]: Browser
+          - button "More actions for New-Vb365-Job-Manager" [ref=e163] [cursor=pointer]: ...
+      - generic [ref=e164]:
+        - generic [ref=e165]:
+          - generic [ref=e166]: org-mapper
+          - generic [ref=e167]: main
+        - generic [ref=e168]:
+          - generic [ref=e169]: 11 uncommitted
+          - generic [ref=e170]: No remote
+        - generic [ref=e171]: "Last commit: 83 days ago"
+        - generic [ref=e172]:
+          - button "Generate AI commit message for org-mapper" [ref=e173] [cursor=pointer]: AI Msg
+          - button "More actions for org-mapper" [ref=e175] [cursor=pointer]: ...
+      - generic [ref=e176]:
+        - generic [ref=e177]:
+          - generic [ref=e178]: ps-obj-dump-tools
+          - generic [ref=e179]: master
+        - generic [ref=e181]: 1 uncommitted
+        - generic [ref=e182]: "Last commit: 22 days ago"
+        - generic [ref=e183]:
+          - button "Generate AI commit message for ps-obj-dump-tools" [ref=e184] [cursor=pointer]: AI Msg
+          - button "Open ps-obj-dump-tools in browser" [ref=e185] [cursor=pointer]: Browser
+          - button "More actions for ps-obj-dump-tools" [ref=e187] [cursor=pointer]: ...
+      - generic [ref=e188]:
+        - generic [ref=e189]:
+          - generic [ref=e190]: rvtools2Universalimporter
+          - generic [ref=e191]: main
+        - generic [ref=e193]: 8 uncommitted
+        - generic [ref=e194]: "Last commit: 2 days ago"
+        - generic [ref=e195]:
+          - button "Generate AI commit message for rvtools2Universalimporter" [ref=e196] [cursor=pointer]: AI Msg
+          - button "Open rvtools2Universalimporter in browser" [ref=e197] [cursor=pointer]: Browser
+          - button "More actions for rvtools2Universalimporter" [ref=e199] [cursor=pointer]: ...
+      - generic [ref=e200]:
+        - generic [ref=e201]:
+          - generic [ref=e202]: sa-tools-dash
+          - generic [ref=e203]: main
+        - generic [ref=e205]: "Last commit: 43 days ago"
+        - generic [ref=e206]:
+          - button "Open sa-tools-dash in browser" [ref=e207] [cursor=pointer]: Browser
+          - button "More actions for sa-tools-dash" [ref=e209] [cursor=pointer]: ...
+      - generic [ref=e210]:
+        - generic [ref=e211]:
+          - generic [ref=e212]: se-lz
+          - generic [ref=e213]: dev
+        - generic [ref=e215]: 68 uncommitted
+        - generic [ref=e216]: "Last commit: today"
+        - generic [ref=e217]:
+          - button "Generate AI commit message for se-lz" [ref=e218] [cursor=pointer]: AI Msg
+          - button "Open se-lz in browser" [ref=e219] [cursor=pointer]: Browser
+          - button "More actions for se-lz" [ref=e221] [cursor=pointer]: ...
+      - generic [ref=e222]:
+        - generic [ref=e223]:
+          - generic [ref=e224]: test
+          - generic [ref=e225]: main
+        - generic [ref=e227]: "Last commit: 44 days ago"
+        - generic [ref=e228]:
+          - button "Open test in browser" [ref=e229] [cursor=pointer]: Browser
+          - button "More actions for test" [ref=e231] [cursor=pointer]: ...
+      - generic [ref=e232]:
+        - generic [ref=e233]:
+          - generic [ref=e234]: toolhub
+          - generic [ref=e235]: main
+        - generic [ref=e237]: 14 uncommitted
+        - generic [ref=e238]: "Last commit: 6 days ago"
+        - generic [ref=e239]:
+          - button "Generate AI commit message for toolhub" [ref=e240] [cursor=pointer]: AI Msg
+          - button "Open toolhub in browser" [ref=e241] [cursor=pointer]: Browser
+          - button "More actions for toolhub" [ref=e243] [cursor=pointer]: ...
+      - generic [ref=e244]:
+        - generic [ref=e245]:
+          - generic [ref=e246]: vb365-tenant-management
+          - generic [ref=e247]: main
+        - generic [ref=e249]: "Last commit: 28 days ago"
+        - generic [ref=e250]:
+          - button "Open vb365-tenant-management in browser" [ref=e251] [cursor=pointer]: Browser
+          - button "More actions for vb365-tenant-management" [ref=e253] [cursor=pointer]: ...
+      - generic [ref=e254]:
+        - generic [ref=e255]:
+          - generic [ref=e256]: VBR-Powershell-Migrate
+          - generic [ref=e257]: main
+        - generic [ref=e259]: No remote
+        - generic [ref=e260]: "Last commit: 6 days ago"
+        - button "More actions for VBR-Powershell-Migrate" [ref=e263] [cursor=pointer]: ...
+      - generic [ref=e264]:
+        - generic [ref=e265]:
+          - generic [ref=e266]: VBR-REST-Job-Import-export
+          - generic [ref=e267]: main
+        - generic [ref=e269]: "Last commit: 7 days ago"
+        - generic [ref=e270]:
+          - button "Open VBR-REST-Job-Import-export in browser" [ref=e271] [cursor=pointer]: Browser
+          - button "More actions for VBR-REST-Job-Import-export" [ref=e273] [cursor=pointer]: ...
+      - generic [ref=e274]:
+        - generic [ref=e275]:
+          - generic [ref=e276]: veeam-healthcheck
+          - generic [ref=e277]: dev
+        - generic [ref=e278]:
+          - generic [ref=e279]: Down 2 to pull
+          - generic [ref=e280] [cursor=pointer]: 3 branch issues
+        - generic [ref=e281]: "Last commit: yesterday"
+        - generic [ref=e282]:
+          - button "Pull veeam-healthcheck" [ref=e283] [cursor=pointer]: Pull
+          - button "Open veeam-healthcheck in browser" [ref=e284] [cursor=pointer]: Browser
+          - button "More actions for veeam-healthcheck" [ref=e286] [cursor=pointer]: ...
+      - generic [ref=e287]:
+        - generic [ref=e288]:
+          - generic [ref=e289]: veeam-vhc-aws
+          - generic [ref=e290]: master
+        - generic [ref=e291]:
+          - generic [ref=e292]: 4 uncommitted
+          - generic [ref=e293]: Up 1 to push
+          - generic [ref=e294] [cursor=pointer]: 2 branch issues
+        - generic [ref=e295]: "Last commit: yesterday"
+        - generic [ref=e296]:
+          - button "Push veeam-vhc-aws" [ref=e297] [cursor=pointer]: Push
+          - button "Generate AI commit message for veeam-vhc-aws" [ref=e298] [cursor=pointer]: AI Msg
+          - button "Open veeam-vhc-aws in browser" [ref=e299] [cursor=pointer]: Browser
+          - button "More actions for veeam-vhc-aws" [ref=e301] [cursor=pointer]: ...
+      - generic [ref=e302]:
+        - generic [ref=e303]:
+          - generic [ref=e304]: VeeamLogScrub
+          - generic [ref=e305]: master
+        - generic [ref=e307]: Up 1 to push
+        - generic [ref=e308]: "Last commit: yesterday"
+        - generic [ref=e309]:
+          - button "Push VeeamLogScrub" [ref=e310] [cursor=pointer]: Push
+          - button "Open VeeamLogScrub in browser" [ref=e311] [cursor=pointer]: Browser
+          - button "More actions for VeeamLogScrub" [ref=e313] [cursor=pointer]: ...
+      - generic [ref=e314]:
+        - generic [ref=e315]:
+          - generic [ref=e316]: VeeamPowerShell
+          - generic [ref=e317]: main
+        - generic [ref=e319]: "Last commit: 43 days ago"
+        - generic [ref=e320]:
+          - button "Open VeeamPowerShell in browser" [ref=e321] [cursor=pointer]: Browser
+          - button "More actions for VeeamPowerShell" [ref=e323] [cursor=pointer]: ...
+      - generic [ref=e324]:
+        - generic [ref=e325]:
+          - generic [ref=e326]: vHC_Reporter
+          - generic [ref=e327]: master
+        - generic [ref=e328]:
+          - generic [ref=e329]: 5 uncommitted
+          - generic [ref=e330]: Down 4 to pull
+        - generic [ref=e331]: "Last commit: 1036 days ago"
+        - generic [ref=e332]:
+          - button "Pull vHC_Reporter" [ref=e333] [cursor=pointer]: Pull
+          - button "Generate AI commit message for vHC_Reporter" [ref=e334] [cursor=pointer]: AI Msg
+          - button "Open vHC_Reporter in browser" [ref=e335] [cursor=pointer]: Browser
+          - button "More actions for vHC_Reporter" [ref=e337] [cursor=pointer]: ...
+      - generic [ref=e338]:
+        - generic [ref=e339]:
+          - generic [ref=e340]: vhc-ai
+          - generic [ref=e341]: main
+        - generic [ref=e342]:
+          - generic [ref=e343]: 53 uncommitted
+          - generic [ref=e344]: No remote
+        - generic [ref=e345]: "Last commit: 97 days ago"
+        - generic [ref=e346]:
+          - button "Generate AI commit message for vhc-ai" [ref=e347] [cursor=pointer]: AI Msg
+          - button "More actions for vhc-ai" [ref=e349] [cursor=pointer]: ...
+      - generic [ref=e350]:
+        - generic [ref=e351]:
+          - generic [ref=e352]: vhc-ai-reader
+          - generic [ref=e353]: main
+        - generic [ref=e355]: No remote
+        - generic [ref=e356]: "Last commit: 28 days ago"
+        - button "More actions for vhc-ai-reader" [ref=e359] [cursor=pointer]: ...
+      - generic [ref=e360]:
+        - generic [ref=e361]:
+          - generic [ref=e362]: vhc-analytics
+          - generic [ref=e363]: main
+        - generic [ref=e365]: "Last commit: 24 days ago"
+        - generic [ref=e366]:
+          - button "Open vhc-analytics in browser" [ref=e367] [cursor=pointer]: Browser
+          - button "More actions for vhc-analytics" [ref=e369] [cursor=pointer]: ...
+      - generic [ref=e370]:
+        - generic [ref=e371]:
+          - generic [ref=e372]: vhc-dl-tracker
+          - generic [ref=e373]: main
+        - generic [ref=e374]:
+          - generic [ref=e375]: Down 2 to pull
+          - generic [ref=e376] [cursor=pointer]: 3 branch issues
+        - generic [ref=e377]: "Last commit: 28 days ago"
+        - generic [ref=e378]:
+          - button "Pull vhc-dl-tracker" [ref=e379] [cursor=pointer]: Pull
+          - button "Open vhc-dl-tracker in browser" [ref=e380] [cursor=pointer]: Browser
+          - button "More actions for vhc-dl-tracker" [ref=e382] [cursor=pointer]: ...
+      - generic [ref=e383]:
+        - generic [ref=e384]:
+          - generic [ref=e385]: VHC-TestAgent
+          - generic [ref=e386]: main
+        - generic [ref=e387]:
+          - generic [ref=e388]: 1 uncommitted
+          - generic [ref=e389]: No remote
+        - generic [ref=e390]: "Last commit: 138 days ago"
+        - generic [ref=e391]:
+          - button "Generate AI commit message for VHC-TestAgent" [ref=e392] [cursor=pointer]: AI Msg
+          - button "More actions for VHC-TestAgent" [ref=e394] [cursor=pointer]: ...
+      - generic [ref=e395]:
+        - generic [ref=e396]:
+          - generic [ref=e397]: VirusTotalScanner
+          - generic [ref=e398]: main
+        - generic [ref=e400]: "Last commit: 43 days ago"
+        - generic [ref=e401]:
+          - button "Open VirusTotalScanner in browser" [ref=e402] [cursor=pointer]: Browser
+          - button "More actions for VirusTotalScanner" [ref=e404] [cursor=pointer]: ...
+      - generic [ref=e405]:
+        - generic [ref=e406]:
+          - generic [ref=e407]: voiceProgram
+          - generic [ref=e408]: main
+        - generic [ref=e409]:
+          - generic [ref=e410]: 3 uncommitted
+          - generic [ref=e411]: Down 4 to pull
+        - generic [ref=e412]: "Last commit: 98 days ago"
+        - generic [ref=e413]:
+          - button "Pull voiceProgram" [ref=e414] [cursor=pointer]: Pull
+          - button "Generate AI commit message for voiceProgram" [ref=e415] [cursor=pointer]: AI Msg
+          - button "Open voiceProgram in browser" [ref=e416] [cursor=pointer]: Browser
+          - button "More actions for voiceProgram" [ref=e418] [cursor=pointer]: ...
+      - generic [ref=e419]:
+        - generic [ref=e420]:
+          - generic [ref=e421]: vse-backend
+          - generic [ref=e422]: master
+        - generic [ref=e424]: 2 uncommitted
+        - generic [ref=e425]: "Last commit: 1023 days ago"
+        - generic [ref=e426]:
+          - button "Generate AI commit message for vse-backend" [ref=e427] [cursor=pointer]: AI Msg
+          - button "Open vse-backend in browser" [ref=e428] [cursor=pointer]: Browser
+          - button "More actions for vse-backend" [ref=e430] [cursor=pointer]: ...
+      - generic [ref=e431]:
+        - generic [ref=e432]:
+          - generic [ref=e433]: vse-backend-net
+          - generic [ref=e434]: Develop
+        - generic [ref=e435]:
+          - generic [ref=e436]: 8 uncommitted
+          - generic [ref=e437]: Up 2 to push
+          - generic [ref=e438] [cursor=pointer]: 5 branch issues
+        - generic [ref=e439]: "Last commit: today"
+        - generic [ref=e440]:
+          - button "Push vse-backend-net" [ref=e441] [cursor=pointer]: Push
+          - button "Generate AI commit message for vse-backend-net" [ref=e442] [cursor=pointer]: AI Msg
+          - button "Open vse-backend-net in browser" [ref=e443] [cursor=pointer]: Browser
+          - button "More actions for vse-backend-net" [ref=e445] [cursor=pointer]: ...
+      - generic [ref=e446]:
+        - generic [ref=e447]:
+          - generic [ref=e448]: vse-backend-net-MCP
+          - generic [ref=e449]: main
+        - generic [ref=e451]: "Last commit: 6 days ago"
+        - generic [ref=e452]:
+          - button "Open vse-backend-net-MCP in browser" [ref=e453] [cursor=pointer]: Browser
+          - button "More actions for vse-backend-net-MCP" [ref=e455] [cursor=pointer]: ...
+      - generic [ref=e456]:
+        - generic [ref=e457]:
+          - generic [ref=e458]: vsphere-to-vme-migration
+          - generic [ref=e459]: main
+        - generic [ref=e461]: "Last commit: 43 days ago"
+        - generic [ref=e462]:
+          - button "Open vsphere-to-vme-migration in browser" [ref=e463] [cursor=pointer]: Browser
+          - button "More actions for vsphere-to-vme-migration" [ref=e465] [cursor=pointer]: ...
+  - text: ▼
+  - status [ref=e469]: "Update failed: fatal: not a git repository (or any of the parent directories): .git"
