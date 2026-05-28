@@ -4,7 +4,8 @@ import { join, resolve as resolvePath } from "path";
 import { readFile } from "fs/promises";
 import { readConfig, writeConfig, redactConfig } from "./lib/config";
 import { scanRepos, parseRemoteUrl } from "./lib/scanner";
-import { triageFeedback } from "./lib/triage";
+import { triageFeedback, type AiConfig } from "./lib/triage";
+import { AI_PROVIDERS } from "./lib/config";
 import { createIssue } from "./lib/github";
 import { createIssue as createGitLabIssue } from "./lib/gitlab";
 import { getGhAccounts, getGhToken } from "./lib/gh";
@@ -86,6 +87,15 @@ const HostnameSchema = z.string().regex(
 const ConfigUpdateSchema = z.object({
   scanPaths: z.array(z.string().min(1)).optional(),
   scanDepth: z.number().int().min(1).max(10).optional(),
+  ai: z
+    .object({
+      provider: z.enum(AI_PROVIDERS).optional(),
+      // Empty string deletes the stored key; non-empty upserts; omitted keeps existing.
+      apiKey: z.string().max(512).optional(),
+      model: z.string().max(128).optional(),
+      baseUrl: z.string().max(512).optional(),
+    })
+    .optional(),
   github: z
     .object({
       copilotAccount: z.string().optional(),
@@ -172,24 +182,34 @@ app.post("/api/triage", async (c) => {
   }
 
   const config = await readConfig();
-  let triageToken: string;
-  try {
-    triageToken = await getGhToken(config.github.copilotAccount);
-  } catch (err: any) {
-    const hint = config.github.copilotAccount
-      ? `Could not get token for "${config.github.copilotAccount}"`
-      : "No AI account configured";
-    return errorResponse(
-      "NO_COPILOT_TOKEN",
-      `${hint} — open Settings and select a GitHub account with Copilot access`,
-      400,
-    );
+  const aiProvider = config.ai.provider;
+
+  const aiConfig: AiConfig = {
+    provider: aiProvider,
+    apiKey: config.ai.apiKey,
+    model: config.ai.model,
+    baseUrl: config.ai.baseUrl,
+  };
+
+  if (aiProvider === "github-copilot") {
+    try {
+      aiConfig.copilotToken = await getGhToken(config.github.copilotAccount);
+    } catch (err: any) {
+      const hint = config.github.copilotAccount
+        ? `Could not get token for "${config.github.copilotAccount}"`
+        : "No GitHub account configured";
+      return errorResponse(
+        "NO_COPILOT_TOKEN",
+        `${hint} — open Settings and select a GitHub account with Copilot access`,
+        400,
+      );
+    }
   }
 
   try {
     const result = await triageFeedback(
       parsed.data.text,
-      triageToken,
+      aiConfig,
       parsed.data.imageBase64,
       parsed.data.imageMimeType,
       parsed.data.repos,
