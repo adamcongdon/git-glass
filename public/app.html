@@ -1448,6 +1448,7 @@
             <span id="config-version-current" style="color:var(--muted);">Checking…</span>
             <span id="config-version-status"></span>
           </div>
+          <button id="config-check-updates-btn" class="btn" style="margin-bottom:8px;width:fit-content;">Check for Updates</button>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
             <input type="checkbox" id="config-auto-update" />
             Auto-update on startup
@@ -1565,6 +1566,24 @@
         <div class="glass-triage-output" id="glass-triage-output" role="status" aria-live="polite">Analyzing...</div>
         <div class="glass-modal-actions">
           <button class="btn btn-ghost" id="glass-triage-close-btn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Update preview modal -->
+    <div class="glass-modal-overlay" id="glass-update-modal" role="dialog" aria-modal="true" aria-labelledby="glass-update-modal-title">
+      <div class="glass-modal" tabindex="-1">
+        <h2 id="glass-update-modal-title">Update Available</h2>
+        <div id="glass-update-version-row" style="display:flex;align-items:center;gap:12px;font-size:14px;margin-bottom:4px;">
+          <span id="glass-update-current" style="color:var(--muted);font-family:monospace;"></span>
+          <span style="color:var(--muted);">→</span>
+          <span id="glass-update-latest" style="color:var(--accent-green);font-weight:600;font-family:monospace;"></span>
+        </div>
+        <div id="glass-update-changelog" role="region" aria-label="Changelog" tabindex="0" style="max-height:200px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:13px;line-height:1.6;color:var(--text);margin:14px 0;white-space:pre-wrap;"></div>
+        <div id="glass-update-modal-error" hidden style="font-size:13px;color:var(--error);background:rgba(220,38,38,0.1);border:1px solid var(--error);border-radius:6px;padding:8px 12px;margin-bottom:12px;"></div>
+        <div class="glass-modal-actions">
+          <button id="glass-update-dismiss-btn" class="btn btn-ghost">Dismiss</button>
+          <button id="glass-update-confirm-btn" class="btn btn-green">Update &amp; Restart</button>
         </div>
       </div>
     </div>
@@ -3099,20 +3118,7 @@
         btn.setAttribute('aria-expanded', 'false');
         const action = item.dataset.action;
         if (action === 'check-updates') {
-          showGlassBanner('Checking for updates...', 'info');
-          try {
-            const data = await glassApi('/api/update', {});
-            if (data.alreadyUpToDate) {
-              showGlassBanner('Already up to date.', 'success');
-            } else if (data.ok) {
-              const head = (data.output || '').split('\n')[0] || 'Updated.';
-              showGlassBanner('Updated: ' + head, 'success', 6000);
-            } else {
-              showGlassBanner('Update failed: ' + (data.output || 'unknown error'), 'error', 8000);
-            }
-          } catch (err) {
-            showGlassBanner('Update failed: ' + err.message, 'error');
-          }
+          await glassCheckForUpdates();
         } else if (action === 'restart') {
           if (!confirm('Restart the server? This only works if installed via install.sh (LaunchAgent).')) return;
           try {
@@ -3130,11 +3136,150 @@
         const resp = await fetch('/api/version');
         if (!resp.ok) return;
         const v = await resp.json();
-        const dot = document.getElementById('glass-update-dot');
-        if (dot) dot.style.display = v.updateAvailable ? 'inline-block' : 'none';
+        glassSetUpdateDot(v.updateAvailable);
       } catch {}
     }
     glassCheckUpdateBadge();
+
+    // ── Update preview modal ─────────────────────────────────────────────────
+
+    function glassSetUpdateDot(updateAvailable) {
+      const dot = document.getElementById('glass-update-dot');
+      if (dot) dot.style.display = updateAvailable ? 'inline-block' : 'none';
+    }
+
+    function glassShowUpdateModal(v) {
+      const inner = document.querySelector('#glass-update-modal .glass-modal');
+      document.getElementById('glass-update-current').textContent = v.current || 'unknown';
+      document.getElementById('glass-update-latest').textContent = v.latest || '';
+      const cl = document.getElementById('glass-update-changelog');
+      // never innerHTML — release body is untrusted markdown
+      if (v.changelog) {
+        cl.textContent = v.changelog;
+        cl.style.color = '';
+      } else {
+        cl.textContent = 'No changelog available.';
+        cl.style.color = 'var(--muted)';
+      }
+      document.getElementById('glass-update-modal-error').hidden = true;
+      document.getElementById('glass-update-modal-error').textContent = '';
+      document.getElementById('glass-update-confirm-btn').disabled = false;
+      document.getElementById('glass-update-confirm-btn').textContent = 'Update & Restart';
+      document.getElementById('glass-update-dismiss-btn').disabled = false;
+      glassOpenModal('glass-update-modal', inner);
+    }
+
+    function glassCloseUpdateModal() {
+      glassCloseModal('glass-update-modal');
+    }
+
+    async function glassCheckForUpdates() {
+      showGlassBanner('Checking for updates…', 'info');
+      try {
+        const v = await glassApi('/api/version?force=true');
+        glassSetUpdateDot(v.updateAvailable);
+        if (!v.updateAvailable) {
+          showGlassBanner('You\'re on ' + (v.current || 'unknown') + ' — already the latest.', 'success', 5000);
+          return;
+        }
+        showGlassBanner('', 'info', 1);
+        glassShowUpdateModal(v);
+      } catch (err) {
+        showGlassBanner('Update check failed: ' + (err && err.message ? err.message : err), 'error', 8000);
+      }
+    }
+
+    async function glassPerformUpdate() {
+      const confirmBtn = document.getElementById('glass-update-confirm-btn');
+      const dismissBtn = document.getElementById('glass-update-dismiss-btn');
+      const errEl = document.getElementById('glass-update-modal-error');
+      function resetButtons() {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Update & Restart';
+        dismissBtn.disabled = false;
+      }
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Updating…';
+      dismissBtn.disabled = true;
+      errEl.hidden = true;
+      errEl.textContent = '';
+      try {
+        const data = await glassApi('/api/update', {});
+        if (!data || !data.ok) {
+          errEl.textContent = 'Update failed: ' + ((data && data.output) ? data.output : 'unknown error');
+          errEl.hidden = false;
+          resetButtons();
+          return;
+        }
+        glassCloseUpdateModal();
+        try {
+          await glassApi('/api/restart', {});
+        } catch {
+          // /api/restart may error as the server shuts down — proceed to reconnect
+        }
+        glassWaitForServerBack();
+      } catch (err) {
+        errEl.textContent = 'Update failed: ' + (err && err.message ? err.message : err);
+        errEl.hidden = false;
+        resetButtons();
+      }
+    }
+
+    function glassWaitForServerBack() {
+      const POLL_MS = 2000;
+      const MAX_ATTEMPTS = 30; // 60 seconds total
+      const bannerEl = document.getElementById('glass-banner');
+      const startMs = Date.now();
+      showGlassBanner('Restarting… reconnecting', 'info', 0);
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        const elapsed = Math.round((Date.now() - startMs) / 1000);
+        if (bannerEl) bannerEl.textContent = 'Restarting… reconnecting (' + elapsed + 's)';
+        try {
+          const r = await fetch('/api/health');
+          if (r.ok) {
+            clearInterval(interval);
+            showGlassBanner('Back online — reloading.', 'success', 1500);
+            setTimeout(() => location.reload(), 1000);
+            return;
+          }
+        } catch {
+          // server not up yet
+        }
+        if (attempts >= MAX_ATTEMPTS) {
+          clearInterval(interval);
+          showGlassBanner('Reconnect timed out. Reload the page manually when the server is back.', 'error', 0);
+        }
+      }, POLL_MS);
+    }
+
+    // Modal wiring: backdrop close and button click handlers.
+    // Escape and focus trap are handled by glassOpenModal / global keydown listener.
+    (function() {
+      const modal = document.getElementById('glass-update-modal');
+      if (!modal) return;
+      document.getElementById('glass-update-confirm-btn').addEventListener('click', glassPerformUpdate);
+      document.getElementById('glass-update-dismiss-btn').addEventListener('click', glassCloseUpdateModal);
+      modal.addEventListener('click', function(e) { if (e.target === modal) glassCloseUpdateModal(); });
+    })();
+
+    // Wire the Config-page "Check for Updates" button.
+    (function() {
+      const btn = document.getElementById('config-check-updates-btn');
+      if (!btn) return;
+      btn.addEventListener('click', async function() {
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = 'Checking…';
+        try {
+          await glassCheckForUpdates();
+        } finally {
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
+      });
+    })();
 
     // ── Auto-refresh ─────────────────────────────────────────────────────────
 
@@ -3263,7 +3408,8 @@
     // Escape closes any open modal
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
-      if (document.getElementById('glass-delete-modal').classList.contains('open')) glassCloseDeleteModal();
+      if (document.getElementById('glass-update-modal').classList.contains('open')) glassCloseUpdateModal();
+      else if (document.getElementById('glass-delete-modal').classList.contains('open')) glassCloseDeleteModal();
       else if (document.getElementById('glass-commit-modal').classList.contains('open')) glassCloseCommitModal();
       else if (document.getElementById('glass-triage-modal').classList.contains('open')) glassCloseTriageModal();
       else if (document.getElementById('glass-ignored-panel').classList.contains('open')) glassCloseIgnoredPanel();

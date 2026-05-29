@@ -683,11 +683,15 @@ const SELF_REPO_DIR = resolvePath(import.meta.dir);
 
 // GET /api/version — current version, latest released version, and updateAvailable flag.
 // Read-only, no mutating side effects, so no sameOriginGuard is needed.
+// `?force=true` (or `?force=1`) bypasses the in-process cache so the user-initiated
+// "Check for Updates" button always sees fresh data.
 app.get("/api/version", async (c) => {
   try {
-    return c.json(await getVersionInfo());
+    const forceParam = c.req.query("force");
+    const force = forceParam === "true" || forceParam === "1";
+    return c.json(await getVersionInfo(force));
   } catch {
-    return c.json({ current: "unknown", latest: null, updateAvailable: false, currentCommit: "" });
+    return c.json({ current: "unknown", latest: null, updateAvailable: false, currentCommit: "", changelog: null });
   }
 });
 
