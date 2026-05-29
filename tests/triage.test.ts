@@ -14,6 +14,12 @@ describe("parseTriageResponse", () => {
       body: "The login button does not work on mobile",
       type: "bug",
       suggestedRepo: null,
+      priority: "P2-medium",
+      component: "general",
+      priorityRationale: "",
+      rootCause: "",
+      suggestedFix: "",
+      effort: "M",
     });
   });
 
@@ -25,6 +31,12 @@ describe("parseTriageResponse", () => {
       body: "Users want dark mode",
       type: "feature",
       suggestedRepo: null,
+      priority: "P2-medium",
+      component: "general",
+      priorityRationale: "",
+      rootCause: "",
+      suggestedFix: "",
+      effort: "M",
     });
   });
 
@@ -36,6 +48,12 @@ describe("parseTriageResponse", () => {
       body: "How do I authenticate?",
       type: "question",
       suggestedRepo: null,
+      priority: "P2-medium",
+      component: "general",
+      priorityRationale: "",
+      rootCause: "",
+      suggestedFix: "",
+      effort: "M",
     });
   });
 
@@ -47,6 +65,12 @@ describe("parseTriageResponse", () => {
       body: raw,
       type: "question",
       suggestedRepo: null,
+      priority: "P2-medium",
+      component: "general",
+      priorityRationale: "",
+      rootCause: "",
+      suggestedFix: "",
+      effort: "M",
     });
   });
 
@@ -54,6 +78,9 @@ describe("parseTriageResponse", () => {
     const result = parseTriageResponse("");
     expect(result.type).toBe("question");
     expect(result.title).toBe("");
+    expect(result.priority).toBe("P2-medium");
+    expect(result.component).toBe("general");
+    expect(result.effort).toBe("M");
   });
 
   test("normalizes type 'feature' to valid type", () => {
@@ -73,6 +100,87 @@ describe("parseTriageResponse", () => {
     const result = parseTriageResponse(raw);
     expect(result.title).toBe("Only title");
     expect(result.type).toBe("question");
+    expect(result.priority).toBe("P2-medium");
+    expect(result.component).toBe("general");
+    expect(result.effort).toBe("M");
+  });
+});
+
+describe("parseTriageResponse — new extended fields", () => {
+  test("parses all 6 new fields when present", () => {
+    const raw = JSON.stringify({
+      title: "Auth broken",
+      body: "Login fails for SSO users",
+      type: "bug",
+      priority: "P1-high",
+      component: "auth",
+      priority_rationale: "Blocking all SSO users",
+      root_cause: "lib/auth.ts line 42 — token expiry not checked",
+      suggested_fix: "Add token expiry validation in verifyToken()",
+      effort: "S",
+    });
+    const result = parseTriageResponse(raw);
+    expect(result.priority).toBe("P1-high");
+    expect(result.component).toBe("auth");
+    expect(result.priorityRationale).toBe("Blocking all SSO users");
+    expect(result.rootCause).toBe("lib/auth.ts line 42 — token expiry not checked");
+    expect(result.suggestedFix).toBe("Add token expiry validation in verifyToken()");
+    expect(result.effort).toBe("S");
+  });
+
+  test("invalid priority falls back to P2-medium", () => {
+    const raw = JSON.stringify({ title: "T", body: "B", type: "bug", priority: "URGENT" });
+    const result = parseTriageResponse(raw);
+    expect(result.priority).toBe("P2-medium");
+  });
+
+  test("invalid component falls back to general", () => {
+    const raw = JSON.stringify({ title: "T", body: "B", type: "bug", component: "unknown-thing" });
+    const result = parseTriageResponse(raw);
+    expect(result.component).toBe("general");
+  });
+
+  test("invalid effort falls back to M", () => {
+    const raw = JSON.stringify({ title: "T", body: "B", type: "bug", effort: "HUGE" });
+    const result = parseTriageResponse(raw);
+    expect(result.effort).toBe("M");
+  });
+
+  test("malformed JSON returns all new fields with defaults", () => {
+    const result = parseTriageResponse("not json {{");
+    expect(result.priority).toBe("P2-medium");
+    expect(result.component).toBe("general");
+    expect(result.priorityRationale).toBe("");
+    expect(result.rootCause).toBe("");
+    expect(result.suggestedFix).toBe("");
+    expect(result.effort).toBe("M");
+  });
+
+  test("all valid priority values are accepted", () => {
+    for (const p of ["P0-critical", "P1-high", "P2-medium", "P3-low"]) {
+      const raw = JSON.stringify({ title: "T", body: "B", type: "bug", priority: p });
+      expect(parseTriageResponse(raw).priority).toBe(p);
+    }
+  });
+
+  test("all valid component values are accepted", () => {
+    for (const c of ["auth", "ui", "analytics", "vault-estimator", "deployment", "database", "performance", "general"]) {
+      const raw = JSON.stringify({ title: "T", body: "B", type: "bug", component: c });
+      expect(parseTriageResponse(raw).component).toBe(c);
+    }
+  });
+
+  test("all valid effort values are accepted", () => {
+    for (const e of ["XS", "S", "M", "L", "XL"]) {
+      const raw = JSON.stringify({ title: "T", body: "B", type: "bug", effort: e });
+      expect(parseTriageResponse(raw).effort).toBe(e);
+    }
+  });
+
+  test("non-string priority_rationale falls back to empty string", () => {
+    const raw = JSON.stringify({ title: "T", body: "B", type: "bug", priority_rationale: 42 });
+    const result = parseTriageResponse(raw);
+    expect(result.priorityRationale).toBe("");
   });
 });
 
@@ -96,6 +204,34 @@ describe("buildTriagePrompt", () => {
     expect(system).toContain("bug");
     expect(system).toContain("feature");
     expect(system).toContain("question");
+  });
+
+  test("system prompt contains all priority values", () => {
+    const { system } = buildTriagePrompt("test");
+    expect(system).toContain("P0-critical");
+    expect(system).toContain("P1-high");
+    expect(system).toContain("P2-medium");
+    expect(system).toContain("P3-low");
+  });
+
+  test("system prompt contains priority, component, effort fields", () => {
+    const { system } = buildTriagePrompt("test");
+    expect(system).toContain("priority");
+    expect(system).toContain("component");
+    expect(system).toContain("effort");
+  });
+
+  test("system prompt contains component values", () => {
+    const { system } = buildTriagePrompt("test");
+    expect(system).toContain("auth");
+    expect(system).toContain("ui");
+    expect(system).toContain("general");
+  });
+
+  test("system prompt contains effort values", () => {
+    const { system } = buildTriagePrompt("test");
+    expect(system).toContain("XS");
+    expect(system).toContain("XL");
   });
 });
 
