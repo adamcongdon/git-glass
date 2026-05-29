@@ -1628,6 +1628,7 @@
     let deferredInstall = null;
     let healthInterval = null;
     let successTimer = null;
+    let lastTriageMeta = null;
 
     // DOM refs
     const repoCard = document.getElementById('repo-card');
@@ -1992,6 +1993,15 @@
         if (data.type) {
           issueTypeEl.value = data.type;
         }
+        // Store extended triage fields for issue submission
+        lastTriageMeta = {
+          priority: data.priority || null,
+          component: data.component || null,
+          priorityRationale: data.priorityRationale || null,
+          rootCause: data.rootCause || null,
+          suggestedFix: data.suggestedFix || null,
+          effort: data.effort || null,
+        };
         // Handle AI repo suggestion
         if (data.suggestedRepo) {
           const found = repos.find(r => r.name === data.suggestedRepo);
@@ -2021,6 +2031,14 @@
         };
         if (attachedImage) {
           issueBody.imageBase64 = attachedImage.dataUrl;
+        }
+        if (lastTriageMeta) {
+          if (lastTriageMeta.priority) issueBody.priority = lastTriageMeta.priority;
+          if (lastTriageMeta.component) issueBody.component = lastTriageMeta.component;
+          if (lastTriageMeta.priorityRationale) issueBody.priorityRationale = lastTriageMeta.priorityRationale;
+          if (lastTriageMeta.rootCause) issueBody.rootCause = lastTriageMeta.rootCause;
+          if (lastTriageMeta.suggestedFix) issueBody.suggestedFix = lastTriageMeta.suggestedFix;
+          if (lastTriageMeta.effort) issueBody.effort = lastTriageMeta.effort;
         }
         const resp = await fetch('/api/issues', {
           method: 'POST',
@@ -2060,6 +2078,7 @@
         issueTitleEl.value = '';
         issueBodyEl.value = '';
         issueTypeEl.value = 'bug';
+        lastTriageMeta = null;
         clearImage();
         clearAiBadge();
         statusPanel.style.display = 'none';

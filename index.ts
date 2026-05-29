@@ -5,9 +5,9 @@ import { readFile } from "fs/promises";
 import { readConfig, writeConfig, redactConfig } from "./lib/config";
 import { getVersionInfo } from "./lib/version";
 import { scanRepos, parseRemoteUrl } from "./lib/scanner";
-import { triageFeedback, type AiConfig } from "./lib/triage";
+import { triageFeedback, type AiConfig, VALID_PRIORITIES, VALID_COMPONENTS, VALID_EFFORTS } from "./lib/triage";
 import { AI_PROVIDERS } from "./lib/config";
-import { createIssue } from "./lib/github";
+import { createIssue, applyLabels, postTriageComment, TYPE_TO_LABEL, type TriageCommentData } from "./lib/github";
 import { createIssue as createGitLabIssue } from "./lib/gitlab";
 import { getGhAccounts, getGhToken } from "./lib/gh";
 import { validateRepoPath, getAllRepoStatuses, runGit } from "./lib/gitStatus";
@@ -231,6 +231,12 @@ app.post("/api/triage", async (c) => {
       body: result.body,
       type: result.type,
       suggestedRepo,
+      priority: result.priority,
+      component: result.component,
+      priorityRationale: result.priorityRationale,
+      rootCause: result.rootCause,
+      suggestedFix: result.suggestedFix,
+      effort: result.effort,
     });
   } catch (err: any) {
     return errorResponse("TRIAGE_ERROR", err.message, 500);
@@ -244,6 +250,12 @@ const IssueRequestSchema = z.object({
   body: z.string().min(1).max(65536),
   type: z.enum(["bug", "feature", "question"]),
   imageBase64: z.string().optional(),
+  priority: z.enum(VALID_PRIORITIES).optional(),
+  component: z.enum(VALID_COMPONENTS).optional(),
+  priorityRationale: z.string().max(1000).optional(),
+  rootCause: z.string().max(2000).optional(),
+  suggestedFix: z.string().max(2000).optional(),
+  effort: z.enum(VALID_EFFORTS).optional(),
 });
 
 app.post("/api/issues", async (c) => {
@@ -302,6 +314,27 @@ app.post("/api/issues", async (c) => {
         },
         parsed.data.imageBase64,
       );
+
+      // Post-creation enrichment — always silent fail, run in parallel
+      const typeLabel = TYPE_TO_LABEL[parsed.data.type] ?? parsed.data.type;
+      const enrichmentLabels = [typeLabel, parsed.data.priority, parsed.data.component].filter(Boolean) as string[];
+      const enrichmentOps: Promise<boolean>[] = [
+        applyLabels(repoInfo.owner, repoInfo.repo, issueToken, result.number, enrichmentLabels),
+      ];
+      if (parsed.data.priority && parsed.data.component) {
+        const triageData: TriageCommentData = {
+          type: parsed.data.type,
+          priority: parsed.data.priority,
+          component: parsed.data.component,
+          priorityRationale: parsed.data.priorityRationale,
+          rootCause: parsed.data.rootCause,
+          suggestedFix: parsed.data.suggestedFix,
+          effort: parsed.data.effort,
+        };
+        enrichmentOps.push(postTriageComment(repoInfo.owner, repoInfo.repo, issueToken, result.number, triageData));
+      }
+      await Promise.all(enrichmentOps);
+
       return c.json(result);
     } catch (err: any) {
       const status = err.status ?? 500;

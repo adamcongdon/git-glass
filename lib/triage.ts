@@ -2,11 +2,25 @@ import type { AiProvider } from "./config";
 
 export type IssueType = "bug" | "feature" | "question";
 
+export type Priority = "P0-critical" | "P1-high" | "P2-medium" | "P3-low";
+export type Component = "auth" | "ui" | "analytics" | "vault-estimator" | "deployment" | "database" | "performance" | "general";
+export type Effort = "XS" | "S" | "M" | "L" | "XL";
+
+export const VALID_PRIORITIES = ["P0-critical", "P1-high", "P2-medium", "P3-low"] as const;
+export const VALID_COMPONENTS = ["auth", "ui", "analytics", "vault-estimator", "deployment", "database", "performance", "general"] as const;
+export const VALID_EFFORTS = ["XS", "S", "M", "L", "XL"] as const;
+
 export interface TriageResult {
   title: string;
   body: string;
   type: IssueType;
   suggestedRepo: string | null;
+  priority: Priority;
+  component: Component;
+  priorityRationale: string;
+  rootCause: string;
+  suggestedFix: string;
+  effort: Effort;
 }
 
 export type RepoCandidate = { name: string; host: string };
@@ -51,11 +65,20 @@ Analyze the provided feedback and classify it, then respond with ONLY a JSON obj
 {
   "title": "Brief descriptive title (under 80 chars)",
   "body": "Detailed issue body with context and reproduction steps if applicable",
-  "type": "bug"
+  "type": "bug",
+  "priority": "P2-medium",
+  "component": "ui",
+  "priority_rationale": "One sentence justifying the priority",
+  "root_cause": "Specific file/line hypothesis if applicable, or empty string",
+  "suggested_fix": "Concrete next step, not vague advice",
+  "effort": "S"
 }
 
 Rules:
 - "type" must be exactly one of: "bug", "feature", or "question"
+- "priority" must be exactly one of: "P0-critical", "P1-high", "P2-medium", or "P3-low"
+- "component" must be exactly one of: "auth", "ui", "analytics", "vault-estimator", "deployment", "database", "performance", or "general"
+- "effort" must be exactly one of: "XS", "S", "M", "L", or "XL"
 - "title" should be concise and actionable
 - "body" should be helpful to a developer
 - Do NOT wrap in backticks or markdown code fences
@@ -65,6 +88,15 @@ Rules:
 
   return { system, user };
 }
+
+const DEFAULT_TRIAGE_EXTRAS = {
+  priority: "P2-medium" as Priority,
+  component: "general" as Component,
+  priorityRationale: "",
+  rootCause: "",
+  suggestedFix: "",
+  effort: "M" as Effort,
+};
 
 export function parseTriageResponse(raw: string): TriageResult {
   try {
@@ -77,9 +109,28 @@ export function parseTriageResponse(raw: string): TriageResult {
     const type: IssueType = VALID_TYPES.includes(typeRaw) ? typeRaw : "question";
     const suggestedRepo = typeof parsed.suggested_repo === "string" ? parsed.suggested_repo : null;
 
-    return { title, body, type, suggestedRepo };
+    const priorityRaw = parsed.priority;
+    const priority: Priority = (VALID_PRIORITIES as readonly string[]).includes(priorityRaw)
+      ? priorityRaw as Priority
+      : "P2-medium";
+
+    const componentRaw = parsed.component;
+    const component: Component = (VALID_COMPONENTS as readonly string[]).includes(componentRaw)
+      ? componentRaw as Component
+      : "general";
+
+    const effortRaw = parsed.effort;
+    const effort: Effort = (VALID_EFFORTS as readonly string[]).includes(effortRaw)
+      ? effortRaw as Effort
+      : "M";
+
+    const priorityRationale = typeof parsed.priority_rationale === "string" ? parsed.priority_rationale : "";
+    const rootCause = typeof parsed.root_cause === "string" ? parsed.root_cause : "";
+    const suggestedFix = typeof parsed.suggested_fix === "string" ? parsed.suggested_fix : "";
+
+    return { title, body, type, suggestedRepo, priority, component, priorityRationale, rootCause, suggestedFix, effort };
   } catch {
-    return { title: "", body: raw, type: "question", suggestedRepo: null };
+    return { title: "", body: raw, type: "question", suggestedRepo: null, ...DEFAULT_TRIAGE_EXTRAS };
   }
 }
 
@@ -229,6 +280,6 @@ export async function triageFeedback(
     content = await callOpenAiCompatible(token, baseUrl, model, provider === "github-copilot", system, user, rawBase64, imageMimeType);
   }
 
-  if (!content) return { title: "", body: text, type: "question", suggestedRepo: null };
+  if (!content) return { title: "", body: text, type: "question", suggestedRepo: null, ...DEFAULT_TRIAGE_EXTRAS };
   return parseTriageResponse(content);
 }
