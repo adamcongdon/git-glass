@@ -10,6 +10,7 @@ import { AI_PROVIDERS } from "./lib/config";
 import { createIssue, applyLabels, postTriageComment, TYPE_TO_LABEL, type TriageCommentData } from "./lib/github";
 import { createIssue as createGitLabIssue } from "./lib/gitlab";
 import { getGhAccounts, getGhToken } from "./lib/gh";
+import { resolveAccountForRemote } from "./lib/accountResolver";
 import { validateRepoPath, getAllRepoStatuses, runGit } from "./lib/gitStatus";
 import { gitPull, gitPush, pullAllSafe, deleteRepo, openVSCode, revealInFinder } from "./lib/gitOps";
 import { isAvailable as inferenceAvailable, run as inferenceRun } from "./lib/inference";
@@ -71,6 +72,24 @@ app.get("/api/gh-accounts", async (c) => {
   } catch (err: any) {
     return errorResponse("GH_ERROR", err.message, 500);
   }
+});
+
+app.get("/api/resolve-account", async (c) => {
+  const remoteUrl = c.req.query("remoteUrl");
+  if (!remoteUrl || remoteUrl.trim() === "") {
+    return errorResponse("VALIDATION_ERROR", "remoteUrl query parameter is required", 400);
+  }
+  if (remoteUrl.length > 2048) {
+    return errorResponse("VALIDATION_ERROR", "remoteUrl exceeds maximum length", 400);
+  }
+
+  const [config, accounts] = await Promise.all([
+    readConfig(),
+    getGhAccounts().catch(() => [] as string[]),
+  ]);
+
+  const resolution = resolveAccountForRemote(remoteUrl, config, accounts);
+  return c.json(resolution);
 });
 
 // Config endpoints
@@ -249,6 +268,7 @@ const IssueRequestSchema = z.object({
   title: z.string().min(1).max(256),
   body: z.string().min(1).max(65536),
   type: z.enum(["bug", "feature", "question"]),
+  overrideAccount: z.string().max(64).optional(),
   imageBase64: z.string().optional(),
   priority: z.enum(VALID_PRIORITIES).optional(),
   component: z.enum(VALID_COMPONENTS).optional(),
@@ -286,6 +306,7 @@ app.post("/api/issues", async (c) => {
   // GitHub flow: gh token via per-owner mapping → default account
   if (isGitHub) {
     const account =
+      parsed.data.overrideAccount ??
       config.github.ownerAccounts[repoInfo.owner.toLowerCase()] ??
       config.github.defaultAccount;
 

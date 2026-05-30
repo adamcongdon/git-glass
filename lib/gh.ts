@@ -1,5 +1,8 @@
+let _accountsCache: string[] | null = null;
+
 // Discover all github.com accounts logged in via `gh auth status`
 export async function getGhAccounts(): Promise<string[]> {
+  if (_accountsCache !== null) return _accountsCache;
   const proc = Bun.spawnSync(["gh", "auth", "status"], {
     stdout: "pipe",
     stderr: "pipe",
@@ -8,7 +11,8 @@ export async function getGhAccounts(): Promise<string[]> {
   const output =
     new TextDecoder().decode(proc.stderr) + new TextDecoder().decode(proc.stdout);
   const matches = [...output.matchAll(/Logged in to github\.com account (\S+)/g)];
-  return [...new Set(matches.map((m) => m[1]))];
+  _accountsCache = [...new Set(matches.map((m) => m[1]))];
+  return _accountsCache;
 }
 
 // Get OAuth token for a specific account, or the active account if none given

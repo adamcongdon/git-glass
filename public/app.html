@@ -224,6 +224,13 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 11px;
     }
+    #account-chip { margin-top: 6px; }
+    #account-chip.has-select { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .account-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 8px; border-radius: 4px; line-height: 1.4; white-space: nowrap; }
+    .account-chip.ok { background: rgba(0, 166, 74, 0.12); color: #00A64A; }
+    .account-chip.warn { background: rgba(245, 158, 11, 0.12); color: var(--warning, #f59e0b); }
+    #account-override { font-size: 12px; padding: 2px 4px; background: var(--card, #1e2027); color: var(--text, #e4e8ef); border: 1px solid var(--border, #2a2d38); border-radius: 4px; }
+    .chip-link { color: inherit; text-decoration: underline; cursor: pointer; }
 
     /* Textarea */
     textarea {
@@ -1311,6 +1318,7 @@
           <div id="repo-dropdown"></div>
         </div>
         <div id="selected-repo"></div>
+        <div id="account-chip"></div>
       </div>
 
       <!-- Feedback Input -->
@@ -1648,6 +1656,7 @@
     let healthInterval = null;
     let successTimer = null;
     let lastTriageMeta = null;
+    let selectedAccountOverride = null;
 
     // DOM refs
     const repoCard = document.getElementById('repo-card');
@@ -1805,10 +1814,142 @@
       }
     }
 
+    function clearAccountChip() {
+      const chipEl = document.getElementById('account-chip');
+      if (chipEl) { chipEl.innerHTML = ''; chipEl.classList.remove('has-select'); }
+      selectedAccountOverride = null;
+    }
+
+    function makeSettingsLink() {
+      const link = document.createElement('a');
+      link.href = '#';
+      link.className = 'chip-link';
+      link.textContent = 'Settings';
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('glass-settings-btn')?.click();
+      });
+      return link;
+    }
+
+    async function refreshAccountChip(remoteUrl) {
+      clearAccountChip();
+      const chipEl = document.getElementById('account-chip');
+      if (!chipEl) return;
+
+      let data;
+      try {
+        const resp = await fetch('/api/resolve-account?remoteUrl=' + encodeURIComponent(remoteUrl));
+        if (!resp.ok) return;
+        data = await resp.json();
+      } catch {
+        return;
+      }
+
+      const chip = document.createElement('span');
+      chip.className = 'account-chip';
+
+      if (data.type === 'github') {
+        if (data.resolved && data.account) {
+          chip.classList.add('ok');
+          chip.setAttribute('role', 'status');
+          chip.setAttribute('aria-live', 'polite');
+          const icon = document.createElement('span');
+          icon.setAttribute('aria-hidden', 'true');
+          icon.textContent = '✓';
+          const label = document.createElement('span');
+          label.textContent = 'Will post as: ';
+          const strong = document.createElement('strong');
+          strong.textContent = data.account;
+          label.appendChild(strong);
+          chip.appendChild(icon);
+          chip.appendChild(label);
+          chipEl.appendChild(chip);
+
+          if (data.availableAccounts && data.availableAccounts.length > 1) {
+            const sel = document.createElement('select');
+            sel.id = 'account-override';
+            sel.setAttribute('aria-label', 'Override GitHub account');
+            for (const acct of data.availableAccounts) {
+              const opt = document.createElement('option');
+              opt.value = acct;
+              opt.textContent = acct;
+              if (acct === data.account) opt.selected = true;
+              sel.appendChild(opt);
+            }
+            sel.addEventListener('change', (e) => {
+              selectedAccountOverride = e.target.value;
+              strong.textContent = e.target.value;
+            });
+            chipEl.classList.add('has-select');
+            chipEl.appendChild(sel);
+          }
+        } else {
+          chip.classList.add('warn');
+          chip.setAttribute('role', 'alert');
+          const icon = document.createElement('span');
+          icon.setAttribute('aria-hidden', 'true');
+          icon.textContent = '⚠ ';
+          const label = document.createElement('span');
+          label.textContent = 'No GitHub account — open ';
+          label.appendChild(makeSettingsLink());
+          chip.appendChild(icon);
+          chip.appendChild(label);
+          chipEl.appendChild(chip);
+        }
+      } else if (data.type === 'gitlab') {
+        if (data.hasToken) {
+          chip.classList.add('ok');
+          chip.setAttribute('role', 'status');
+          chip.setAttribute('aria-live', 'polite');
+          const icon = document.createElement('span');
+          icon.setAttribute('aria-hidden', 'true');
+          icon.textContent = '✓';
+          const label = document.createElement('span');
+          label.textContent = 'Token: ';
+          const strong = document.createElement('strong');
+          strong.textContent = data.host;
+          label.appendChild(strong);
+          chip.appendChild(icon);
+          chip.appendChild(label);
+          chipEl.appendChild(chip);
+        } else {
+          chip.classList.add('warn');
+          chip.setAttribute('role', 'alert');
+          const icon = document.createElement('span');
+          icon.setAttribute('aria-hidden', 'true');
+          icon.textContent = '⚠ ';
+          const label = document.createElement('span');
+          label.textContent = 'No GitLab token for ';
+          const hostSpan = document.createElement('strong');
+          hostSpan.textContent = data.host ?? 'this host';
+          label.appendChild(hostSpan);
+          label.appendChild(document.createTextNode(' — open '));
+          label.appendChild(makeSettingsLink());
+          chip.appendChild(icon);
+          chip.appendChild(label);
+          chipEl.appendChild(chip);
+        }
+      }
+      // type === 'unknown' → leave chipEl empty
+    }
+
     function selectRepo(repo, save = true, showAiBadge = false) {
       selectedRepo = repo;
-      repoSearch.value = repo.name;
       selectedRepoEl.innerHTML = '';
+      clearAiBadge();
+
+      if (!repo) {
+        repoSearch.value = '';
+        repoDropdown.classList.remove('open');
+        clearAccountChip();
+        if (state === STATES.TRIAGED || state === STATES.ERROR) {
+          updateUI();
+        }
+        return;
+      }
+
+      repoSearch.value = repo.name;
       const pathLine = document.createElement('div');
       pathLine.textContent = repo.localPath;
       const remoteLine = document.createElement('div');
@@ -1818,8 +1959,6 @@
       targetLine.className = 'repo-meta';
       targetLine.textContent = `target: ${repo.host}/${repo.owner}/${repo.repo}`;
       selectedRepoEl.append(pathLine, remoteLine, targetLine);
-
-      clearAiBadge();
       if (showAiBadge) {
         const badge = document.createElement('span');
         badge.id = 'ai-suggested-badge';
@@ -1835,6 +1974,11 @@
       // Recheck submit button state
       if (state === STATES.TRIAGED || state === STATES.ERROR) {
         updateUI();
+      }
+      if (repo.remoteUrl) {
+        refreshAccountChip(repo.remoteUrl);
+      } else {
+        clearAccountChip();
       }
     }
 
@@ -1887,6 +2031,7 @@
     repoSearch.addEventListener('input', () => {
       selectedRepo = null;
       selectedRepoEl.textContent = '';
+      clearAccountChip();
       clearAiBadge();
       checkDraftState();
       clearTimeout(repoSearchTimer);
@@ -2058,6 +2203,9 @@
           if (lastTriageMeta.rootCause) issueBody.rootCause = lastTriageMeta.rootCause;
           if (lastTriageMeta.suggestedFix) issueBody.suggestedFix = lastTriageMeta.suggestedFix;
           if (lastTriageMeta.effort) issueBody.effort = lastTriageMeta.effort;
+        }
+        if (selectedAccountOverride) {
+          issueBody.overrideAccount = selectedAccountOverride;
         }
         const resp = await fetch('/api/issues', {
           method: 'POST',
