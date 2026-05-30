@@ -2,26 +2,53 @@ name: Release
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["CI", "CodeQL"]
     types: [completed]
     branches: [main, master]
 
 jobs:
   release:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
+      - name: Verify all required checks passed
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          REPO="${{ github.repository }}"
+
+          get_conclusion() {
+            gh api "repos/$REPO/actions/runs?head_sha=$SHA&status=completed" \
+              --jq "[.workflow_runs[] | select(.name == \"$1\")] | first | .conclusion // \"pending\""
+          }
+
+          CI_STATUS=$(get_conclusion "CI")
+          CODEQL_STATUS=$(get_conclusion "CodeQL")
+
+          echo "CI=$CI_STATUS  CodeQL=$CODEQL_STATUS"
+
+          if [ "$CI_STATUS" = "success" ] && [ "$CODEQL_STATUS" = "success" ]; then
+            echo "all_passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "all_passed=false" >> $GITHUB_OUTPUT
+          fi
+
       - uses: actions/checkout@v6
+        if: steps.gate.outputs.all_passed == 'true'
         with:
           fetch-depth: 0
 
       - name: Read version from package.json
+        if: steps.gate.outputs.all_passed == 'true'
         id: version
         run: echo "version=v$(jq -r .version package.json)" >> $GITHUB_OUTPUT
 
       - name: Check if tag already exists
+        if: steps.gate.outputs.all_passed == 'true'
         id: tag_check
         run: |
           if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
@@ -31,7 +58,7 @@ jobs:
           fi
 
       - name: Create tag and GitHub Release
-        if: steps.tag_check.outputs.exists == 'false'
+        if: steps.gate.outputs.all_passed == 'true' && steps.tag_check.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
