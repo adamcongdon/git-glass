@@ -193,7 +193,7 @@ export interface TriageCommentData {
 }
 
 function sanitizeCell(s: string): string {
-  return s.replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ").trim();
+  return s.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ").trim();
 }
 
 export function buildTriageComment(t: TriageCommentData): string {
