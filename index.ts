@@ -2,13 +2,15 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { join, resolve as resolvePath } from "path";
 import { readFile } from "fs/promises";
-import { readConfig, writeConfig, redactConfig } from "./lib/config";
+import { readConfig, writeConfig, redactConfig, type Config } from "./lib/config";
+import { getVersionInfo } from "./lib/version";
 import { scanRepos, parseRemoteUrl } from "./lib/scanner";
-import { triageFeedback, type AiConfig } from "./lib/triage";
+import { triageFeedback, type AiConfig, VALID_PRIORITIES, VALID_COMPONENTS, VALID_EFFORTS } from "./lib/triage";
 import { AI_PROVIDERS } from "./lib/config";
-import { createIssue } from "./lib/github";
+import { createIssue, applyLabels, postTriageComment, TYPE_TO_LABEL, type TriageCommentData } from "./lib/github";
 import { createIssue as createGitLabIssue } from "./lib/gitlab";
 import { getGhAccounts, getGhToken } from "./lib/gh";
+import { resolveAccountForRemote } from "./lib/accountResolver";
 import { validateRepoPath, getAllRepoStatuses, runGit } from "./lib/gitStatus";
 import { gitPull, gitPush, pullAllSafe, deleteRepo, openVSCode, revealInFinder } from "./lib/gitOps";
 import { isAvailable as inferenceAvailable, run as inferenceRun } from "./lib/inference";
@@ -21,7 +23,7 @@ const PUBLIC_DIR = join(import.meta.dir, "public");
 async function serveFile(path: string, contentType: string): Promise<Response> {
   try {
     const content = await readFile(path);
-    return new Response(content, {
+    return new Response(content as unknown as BodyInit, {
       headers: { "Content-Type": contentType },
     });
   } catch {
@@ -70,6 +72,24 @@ app.get("/api/gh-accounts", async (c) => {
   } catch (err: any) {
     return errorResponse("GH_ERROR", err.message, 500);
   }
+});
+
+app.get("/api/resolve-account", async (c) => {
+  const remoteUrl = c.req.query("remoteUrl");
+  if (!remoteUrl || remoteUrl.trim() === "") {
+    return errorResponse("VALIDATION_ERROR", "remoteUrl query parameter is required", 400);
+  }
+  if (remoteUrl.length > 2048) {
+    return errorResponse("VALIDATION_ERROR", "remoteUrl exceeds maximum length", 400);
+  }
+
+  const [config, accounts] = await Promise.all([
+    readConfig(),
+    getGhAccounts().catch(() => [] as string[]),
+  ]);
+
+  const resolution = resolveAccountForRemote(remoteUrl, config, accounts);
+  return c.json(resolution);
 });
 
 // Config endpoints
@@ -134,7 +154,7 @@ app.put("/api/config", async (c) => {
   }
 
   try {
-    const updated = await writeConfig(parsed.data);
+    const updated = await writeConfig(parsed.data as Partial<Config>);
     return c.json(redactConfig(updated));
   } catch (err: any) {
     return errorResponse("CONFIG_WRITE_ERROR", err.message, 500);
@@ -230,6 +250,12 @@ app.post("/api/triage", async (c) => {
       body: result.body,
       type: result.type,
       suggestedRepo,
+      priority: result.priority,
+      component: result.component,
+      priorityRationale: result.priorityRationale,
+      rootCause: result.rootCause,
+      suggestedFix: result.suggestedFix,
+      effort: result.effort,
     });
   } catch (err: any) {
     return errorResponse("TRIAGE_ERROR", err.message, 500);
@@ -242,7 +268,14 @@ const IssueRequestSchema = z.object({
   title: z.string().min(1).max(256),
   body: z.string().min(1).max(65536),
   type: z.enum(["bug", "feature", "question"]),
+  overrideAccount: z.string().max(64).optional(),
   imageBase64: z.string().optional(),
+  priority: z.enum(VALID_PRIORITIES).optional(),
+  component: z.enum(VALID_COMPONENTS).optional(),
+  priorityRationale: z.string().max(1000).optional(),
+  rootCause: z.string().max(2000).optional(),
+  suggestedFix: z.string().max(2000).optional(),
+  effort: z.enum(VALID_EFFORTS).optional(),
 });
 
 app.post("/api/issues", async (c) => {
@@ -273,6 +306,7 @@ app.post("/api/issues", async (c) => {
   // GitHub flow: gh token via per-owner mapping → default account
   if (isGitHub) {
     const account =
+      parsed.data.overrideAccount ??
       config.github.ownerAccounts[repoInfo.owner.toLowerCase()] ??
       config.github.defaultAccount;
 
@@ -301,6 +335,27 @@ app.post("/api/issues", async (c) => {
         },
         parsed.data.imageBase64,
       );
+
+      // Post-creation enrichment — always silent fail, run in parallel
+      const typeLabel = TYPE_TO_LABEL[parsed.data.type] ?? parsed.data.type;
+      const enrichmentLabels = [typeLabel, parsed.data.priority, parsed.data.component].filter(Boolean) as string[];
+      const enrichmentOps: Promise<boolean>[] = [
+        applyLabels(repoInfo.owner, repoInfo.repo, issueToken, result.number, enrichmentLabels),
+      ];
+      if (parsed.data.priority && parsed.data.component) {
+        const triageData: TriageCommentData = {
+          type: parsed.data.type,
+          priority: parsed.data.priority,
+          component: parsed.data.component,
+          priorityRationale: parsed.data.priorityRationale,
+          rootCause: parsed.data.rootCause,
+          suggestedFix: parsed.data.suggestedFix,
+          effort: parsed.data.effort,
+        };
+        enrichmentOps.push(postTriageComment(repoInfo.owner, repoInfo.repo, issueToken, result.number, triageData));
+      }
+      await Promise.all(enrichmentOps);
+
       return c.json(result);
     } catch (err: any) {
       const status = err.status ?? 500;
@@ -647,6 +702,20 @@ app.post("/api/git/ai-triage", async (c) => {
 // be redirected by config changes or path traversal in request bodies.
 const SELF_REPO_DIR = resolvePath(import.meta.dir);
 
+// GET /api/version — current version, latest released version, and updateAvailable flag.
+// Read-only, no mutating side effects, so no sameOriginGuard is needed.
+// `?force=true` (or `?force=1`) bypasses the in-process cache so the user-initiated
+// "Check for Updates" button always sees fresh data.
+app.get("/api/version", async (c) => {
+  try {
+    const forceParam = c.req.query("force");
+    const force = forceParam === "true" || forceParam === "1";
+    return c.json(await getVersionInfo(force));
+  } catch {
+    return c.json({ current: "unknown", latest: null, updateAvailable: false, currentCommit: "", changelog: null });
+  }
+});
+
 // POST /api/update — run `git pull --ff-only` on the dashboard's own repo
 app.post("/api/update", async (c) => {
   const csrf = sameOriginGuard(c);
@@ -704,6 +773,39 @@ app.get("*", () => serveFile(join(PUBLIC_DIR, "app.html"), "text/html"));
 // Start server
 const config = await readConfig();
 const PORT = config.port ?? 7777;
+
+// Startup auto-update: if enabled and a newer release is available, pull and restart.
+// We exit the process on a successful pull and rely on launchd KeepAlive=true to bring
+// the server back on the new commit. On failure we log and continue with the current code.
+if (config.updates?.autoUpdate) {
+  try {
+    const vInfo = await getVersionInfo();
+    if (vInfo.updateAvailable) {
+      const proc = Bun.spawn(["git", "pull", "--ff-only"], {
+        cwd: SELF_REPO_DIR,
+        stdout: "pipe",
+        stderr: "pipe",
+        env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "echo" },
+      });
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => { proc.kill(); reject(new Error("auto-update timed out after 30s")); }, 30_000),
+      );
+      await Promise.race([
+        Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]),
+        timeout,
+      ]);
+      const exitCode = await proc.exited;
+      if (exitCode === 0) {
+        console.log("[auto-update] Pull succeeded — restarting for new version.");
+        process.exit(0); // launchd KeepAlive=true restarts the process
+      } else {
+        console.error("[auto-update] git pull failed (exit", exitCode, ") — starting with current version.");
+      }
+    }
+  } catch (err: any) {
+    console.error("[auto-update] check failed:", err?.message ?? err);
+  }
+}
 
 let server;
 try {

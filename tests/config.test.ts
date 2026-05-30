@@ -125,7 +125,7 @@ describe("redactConfig", () => {
   });
 
   test("handles missing github config gracefully", () => {
-    const config = { scanPaths: [], scanDepth: 3, port: 7777, github: {} };
+    const config = { scanPaths: [], scanDepth: 3, port: 7777, github: { ownerAccounts: {} } };
     const redacted = redactConfig(config);
     expect(redacted.github.copilotAccount).toBeUndefined();
     expect(redacted.github.defaultAccount).toBeUndefined();

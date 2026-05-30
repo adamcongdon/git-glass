@@ -70,7 +70,7 @@ cat > "$PLIST_PATH" << PLIST
         <key>HOME</key>
         <string>${HOME}</string>
         <key>PATH</key>
-        <string>$(dirname "$BUN_PATH"):/usr/local/bin:/usr/bin:/bin</string>
+        <string>$(dirname "$BUN_PATH"):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
         <key>PORT</key>
         <string>${PORT}</string>
     </dict>

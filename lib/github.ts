@@ -1,3 +1,5 @@
+import type { Priority, Component, Effort } from "./triage";
+
 export type IssueType = "bug" | "feature" | "question";
 
 export interface IssueOptions {
@@ -17,11 +19,20 @@ export interface GitHubError {
   status: number;
 }
 
-const TYPE_TO_LABEL: Record<IssueType, string> = {
+export const TYPE_TO_LABEL: Record<IssueType, string> = {
   bug: "bug",
   feature: "enhancement",
   question: "question",
 };
+
+function ghHeaders(token: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "Content-Type": "application/json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+}
 
 export function mapGitHubError(status: number, detail: string): GitHubError {
   switch (status) {
@@ -87,12 +98,7 @@ async function uploadImageAsset(
   try {
     const resp = await fetch(url, {
       method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
+      headers: ghHeaders(token),
       body: JSON.stringify({
         message: `chore: add feedback screenshot ${filename}`,
         content: raw,
@@ -142,12 +148,7 @@ export async function createIssue(
     const body = includeLabels ? payload : { title: payload.title, body: payload.body };
     return fetch(url, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
+      headers: ghHeaders(token),
       body: JSON.stringify(body),
     });
   };
@@ -177,4 +178,75 @@ export async function createIssue(
     url: data.html_url,
     number: data.number,
   };
+}
+
+// ─── Post-creation enrichment ─────────────────────────────────────────────────
+
+export interface TriageCommentData {
+  type: IssueType;
+  priority: Priority;
+  component: Component;
+  priorityRationale?: string;
+  rootCause?: string;
+  suggestedFix?: string;
+  effort?: Effort;
+}
+
+function sanitizeCell(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ").trim();
+}
+
+export function buildTriageComment(t: TriageCommentData): string {
+  const rationale = t.priorityRationale ? ` — ${sanitizeCell(t.priorityRationale)}` : "";
+  const priorityCell = `${t.priority}${rationale}`;
+  const rootCause = t.rootCause ? sanitizeCell(t.rootCause) : "_not specified_";
+  const suggestedFix = t.suggestedFix ? sanitizeCell(t.suggestedFix) : "_not specified_";
+  return [
+    "## Triage Summary",
+    "",
+    "| Field | Value |",
+    "|---|---|",
+    `| **Type** | ${t.type} |`,
+    `| **Priority** | ${priorityCell} |`,
+    `| **Component** | ${t.component} |`,
+    `| **Root Cause** | ${rootCause} |`,
+    `| **Suggested Fix** | ${suggestedFix} |`,
+    `| **Effort** | ${t.effort || "_not specified_"} |`,
+  ].join("\n");
+}
+
+export async function applyLabels(
+  owner: string,
+  repo: string,
+  token: string,
+  issueNumber: number,
+  labels: string[],
+): Promise<boolean> {
+  try {
+    const resp = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/labels`,
+      { method: "POST", headers: ghHeaders(token), body: JSON.stringify({ labels }) },
+    );
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function postTriageComment(
+  owner: string,
+  repo: string,
+  token: string,
+  issueNumber: number,
+  triage: TriageCommentData,
+): Promise<boolean> {
+  try {
+    const resp = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`,
+      { method: "POST", headers: ghHeaders(token), body: JSON.stringify({ body: buildTriageComment(triage) }) },
+    );
+    return resp.ok;
+  } catch {
+    return false;
+  }
 }

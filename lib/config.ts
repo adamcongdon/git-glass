@@ -35,6 +35,11 @@ export const ConfigSchema = z.object({
       autoRefreshSec: z.number().int().min(0).max(1800).default(0),
     })
     .default({}),
+  updates: z
+    .object({
+      autoUpdate: z.boolean().default(false),
+    })
+    .default({}),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -62,6 +67,9 @@ export type RedactedConfig = {
   ignoredRepos: string[];
   repos: {
     autoRefreshSec: number;
+  };
+  updates: {
+    autoUpdate: boolean;
   };
 };
 
@@ -96,6 +104,9 @@ export function redactConfig(config: Partial<Config>): RedactedConfig {
     ignoredRepos: config.ignoredRepos ?? [],
     repos: {
       autoRefreshSec: config.repos?.autoRefreshSec ?? 0,
+    },
+    updates: {
+      autoUpdate: config.updates?.autoUpdate ?? false,
     },
   };
 }
@@ -180,6 +191,9 @@ export async function writeConfig(updates: Partial<Config>): Promise<Config> {
     repos: updates.repos !== undefined
       ? { ...existing.repos, ...updates.repos }
       : existing.repos,
+    updates: updates.updates !== undefined
+      ? { ...existing.updates, ...updates.updates }
+      : existing.updates,
   };
   const validated = ConfigSchema.parse(merged);
   await writeConfigRaw(validated);
