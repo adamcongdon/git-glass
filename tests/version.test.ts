@@ -85,7 +85,7 @@ describe("getVersionInfo cache + force", () => {
         JSON.stringify({ tag_name: "v99.0.0", body: "Test release body" }),
         { status: 200, headers: { "content-type": "application/json" } },
       );
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -125,7 +125,7 @@ describe("getVersionInfo cache + force", () => {
         status: 200,
         headers: { "content-type": "application/json" },
       });
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
     const v = await getVersionInfo(true);
     expect(v.changelog).toBe(null);
   });
@@ -137,7 +137,7 @@ describe("getVersionInfo cache + force", () => {
         status: 200,
         headers: { "content-type": "application/json" },
       });
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
     const v = await getVersionInfo(true);
     expect(v.changelog).toBe(null);
   });
@@ -150,7 +150,7 @@ describe("getVersionInfo cache + force", () => {
         JSON.stringify({ tag_name: "v99.0.0", body: longBody }),
         { status: 200, headers: { "content-type": "application/json" } },
       );
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
     const v = await getVersionInfo(true);
     expect(v.changelog).not.toBe(null);
     expect(v.changelog!.length).toBeLessThanOrEqual(1200 + "\n…[truncated]".length);
@@ -165,7 +165,7 @@ describe("getVersionInfo cache + force", () => {
         JSON.stringify({ tag_name: "v99.0.0", body }),
         { status: 200, headers: { "content-type": "application/json" } },
       );
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
     const v = await getVersionInfo(true);
     expect(v.changelog).toBe(body);
     expect(v.changelog!.endsWith("…[truncated]")).toBe(false);
@@ -175,7 +175,7 @@ describe("getVersionInfo cache + force", () => {
     globalThis.fetch = (async () => {
       fetchCallCount++;
       throw new Error("network down");
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
     const v = await getVersionInfo(true);
     expect(v.changelog).toBe(null);
     expect(v.latest).toBe(null);

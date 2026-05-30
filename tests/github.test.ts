@@ -182,7 +182,7 @@ describe("buildTriageComment", () => {
 describe("applyLabels", () => {
   test("returns true when fetch returns 200", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => new Response(JSON.stringify([{ name: "bug" }]), { status: 200 }) as any;
+    globalThis.fetch = (async () => new Response(JSON.stringify([{ name: "bug" }]), { status: 200 })) as unknown as typeof globalThis.fetch;
     try {
       const result = await applyLabels("owner", "repo", "token", 1, ["bug"]);
       expect(result).toBe(true);
@@ -193,7 +193,7 @@ describe("applyLabels", () => {
 
   test("returns false when fetch returns 422", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => new Response("Unprocessable", { status: 422 }) as any;
+    globalThis.fetch = (async () => new Response("Unprocessable", { status: 422 })) as unknown as typeof globalThis.fetch;
     try {
       const result = await applyLabels("owner", "repo", "token", 1, ["nonexistent"]);
       expect(result).toBe(false);
@@ -204,7 +204,7 @@ describe("applyLabels", () => {
 
   test("never throws when fetch rejects", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => { throw new Error("Network error"); };
+    globalThis.fetch = (async () => { throw new Error("Network error"); }) as unknown as typeof globalThis.fetch;
     try {
       const result = await applyLabels("owner", "repo", "token", 1, ["bug"]);
       expect(result).toBe(false);
@@ -216,10 +216,10 @@ describe("applyLabels", () => {
   test("posts to correct labels URL", async () => {
     const originalFetch = globalThis.fetch;
     let capturedUrl = "";
-    globalThis.fetch = async (url: any) => {
+    globalThis.fetch = (async (url: any) => {
       capturedUrl = String(url);
-      return new Response("[]", { status: 200 }) as any;
-    };
+      return new Response("[]", { status: 200 });
+    }) as unknown as typeof globalThis.fetch;
     try {
       await applyLabels("myowner", "myrepo", "tok", 42, ["bug"]);
       expect(capturedUrl).toBe("https://api.github.com/repos/myowner/myrepo/issues/42/labels");
@@ -243,10 +243,10 @@ describe("postTriageComment", () => {
   test("posts to correct comments URL", async () => {
     const originalFetch = globalThis.fetch;
     let capturedUrl = "";
-    globalThis.fetch = async (url: any) => {
+    globalThis.fetch = (async (url: any) => {
       capturedUrl = String(url);
-      return new Response(JSON.stringify({ id: 1 }), { status: 201 }) as any;
-    };
+      return new Response(JSON.stringify({ id: 1 }), { status: 201 });
+    }) as unknown as typeof globalThis.fetch;
     try {
       await postTriageComment("myowner", "myrepo", "tok", 7, triage);
       expect(capturedUrl).toBe("https://api.github.com/repos/myowner/myrepo/issues/7/comments");
@@ -258,10 +258,10 @@ describe("postTriageComment", () => {
   test("body contains ## Triage Summary", async () => {
     const originalFetch = globalThis.fetch;
     let capturedBody: any = null;
-    globalThis.fetch = async (_url: any, opts: any) => {
+    globalThis.fetch = (async (_url: any, opts: any) => {
       capturedBody = JSON.parse(opts.body);
-      return new Response(JSON.stringify({ id: 1 }), { status: 201 }) as any;
-    };
+      return new Response(JSON.stringify({ id: 1 }), { status: 201 });
+    }) as unknown as typeof globalThis.fetch;
     try {
       await postTriageComment("owner", "repo", "tok", 1, triage);
       expect(capturedBody.body).toContain("## Triage Summary");
@@ -272,7 +272,7 @@ describe("postTriageComment", () => {
 
   test("returns true on 201", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => new Response(JSON.stringify({ id: 1 }), { status: 201 }) as any;
+    globalThis.fetch = (async () => new Response(JSON.stringify({ id: 1 }), { status: 201 })) as unknown as typeof globalThis.fetch;
     try {
       const result = await postTriageComment("owner", "repo", "tok", 1, triage);
       expect(result).toBe(true);
@@ -283,7 +283,7 @@ describe("postTriageComment", () => {
 
   test("returns false (not throw) when fetch rejects", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => { throw new Error("Network failure"); };
+    globalThis.fetch = (async () => { throw new Error("Network failure"); }) as unknown as typeof globalThis.fetch;
     try {
       const result = await postTriageComment("owner", "repo", "tok", 1, triage);
       expect(result).toBe(false);
@@ -294,7 +294,7 @@ describe("postTriageComment", () => {
 
   test("returns false when fetch returns 403", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => new Response("Forbidden", { status: 403 }) as any;
+    globalThis.fetch = (async () => new Response("Forbidden", { status: 403 })) as unknown as typeof globalThis.fetch;
     try {
       const result = await postTriageComment("owner", "repo", "tok", 1, triage);
       expect(result).toBe(false);

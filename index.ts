@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { join, resolve as resolvePath } from "path";
 import { readFile } from "fs/promises";
-import { readConfig, writeConfig, redactConfig } from "./lib/config";
+import { readConfig, writeConfig, redactConfig, type Config } from "./lib/config";
 import { getVersionInfo } from "./lib/version";
 import { scanRepos, parseRemoteUrl } from "./lib/scanner";
 import { triageFeedback, type AiConfig, VALID_PRIORITIES, VALID_COMPONENTS, VALID_EFFORTS } from "./lib/triage";
@@ -23,7 +23,7 @@ const PUBLIC_DIR = join(import.meta.dir, "public");
 async function serveFile(path: string, contentType: string): Promise<Response> {
   try {
     const content = await readFile(path);
-    return new Response(content, {
+    return new Response(content as unknown as BodyInit, {
       headers: { "Content-Type": contentType },
     });
   } catch {
@@ -154,7 +154,7 @@ app.put("/api/config", async (c) => {
   }
 
   try {
-    const updated = await writeConfig(parsed.data);
+    const updated = await writeConfig(parsed.data as Partial<Config>);
     return c.json(redactConfig(updated));
   } catch (err: any) {
     return errorResponse("CONFIG_WRITE_ERROR", err.message, 500);

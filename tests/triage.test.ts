@@ -1,5 +1,5 @@
 import { describe, test, expect, mock } from "bun:test";
-import { parseTriageResponse, buildTriagePrompt, type RepoCandidate } from "../lib/triage";
+import { parseTriageResponse, buildTriagePrompt, type RepoCandidate, type Priority, type Component, type Effort } from "../lib/triage";
 
 describe("parseTriageResponse", () => {
   test("parses valid JSON response", () => {
@@ -159,21 +159,21 @@ describe("parseTriageResponse — new extended fields", () => {
   test("all valid priority values are accepted", () => {
     for (const p of ["P0-critical", "P1-high", "P2-medium", "P3-low"]) {
       const raw = JSON.stringify({ title: "T", body: "B", type: "bug", priority: p });
-      expect(parseTriageResponse(raw).priority).toBe(p);
+      expect(parseTriageResponse(raw).priority).toBe(p as Priority);
     }
   });
 
   test("all valid component values are accepted", () => {
     for (const c of ["auth", "ui", "analytics", "vault-estimator", "deployment", "database", "performance", "general"]) {
       const raw = JSON.stringify({ title: "T", body: "B", type: "bug", component: c });
-      expect(parseTriageResponse(raw).component).toBe(c);
+      expect(parseTriageResponse(raw).component).toBe(c as Component);
     }
   });
 
   test("all valid effort values are accepted", () => {
     for (const e of ["XS", "S", "M", "L", "XL"]) {
       const raw = JSON.stringify({ title: "T", body: "B", type: "bug", effort: e });
-      expect(parseTriageResponse(raw).effort).toBe(e);
+      expect(parseTriageResponse(raw).effort).toBe(e as Effort);
     }
   });
 
