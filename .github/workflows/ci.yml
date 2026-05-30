@@ -9,8 +9,17 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v6
+
+      - name: Socket Security Scan
+        uses: SocketDev/action@v4
+        env:
+          SOCKET_TOKEN: ${{ secrets.SOCKET_TOKEN }}
+        continue-on-error: true
 
       - uses: oven-sh/setup-bun@v2
         with:
