@@ -104,6 +104,47 @@ describe("parseTriageResponse", () => {
     expect(result.component).toBe("general");
     expect(result.effort).toBe("M");
   });
+
+  test("preserves original text in <details> block when provided", () => {
+    const raw = JSON.stringify({
+      title: "Crash on startup",
+      body: "App crashes when launching from cold start",
+      type: "bug",
+    });
+    const originalText = "ERROR: foo\n  at bar:123\n  at baz:456";
+    const result = parseTriageResponse(raw, originalText);
+    expect(result.title).toBe("Crash on startup");
+    expect(result.body).toContain("App crashes when launching from cold start");
+    expect(result.body).toContain("<details>");
+    expect(result.body).toContain("<summary>Original feedback</summary>");
+    expect(result.body).toContain("ERROR: foo");
+    expect(result.body).toContain("at bar:123");
+    expect(result.body).toContain("at baz:456");
+    expect(result.body).toContain("</details>");
+  });
+
+  test("preserves original text on JSON parse failure", () => {
+    const raw = "not json";
+    const originalText = "User typed this raw feedback that we want to keep";
+    const result = parseTriageResponse(raw, originalText);
+    expect(result.body).toContain("not json");
+    expect(result.body).toContain("<details>");
+    expect(result.body).toContain("<summary>Original feedback</summary>");
+    expect(result.body).toContain("User typed this raw feedback that we want to keep");
+    expect(result.body).toContain("</details>");
+  });
+
+  test("escapes HTML in original text", () => {
+    const raw = JSON.stringify({
+      title: "T",
+      body: "B",
+      type: "bug",
+    });
+    const originalText = "</details><script>alert(1)</script>";
+    const result = parseTriageResponse(raw, originalText);
+    expect(result.body).toContain("&lt;/details&gt;&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(result.body).not.toContain("</details><script>alert(1)</script>");
+  });
 });
 
 describe("parseTriageResponse — new extended fields", () => {
