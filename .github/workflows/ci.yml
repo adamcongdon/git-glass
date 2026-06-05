@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, dev]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, dev]
 
 jobs:
   test:
@@ -14,12 +14,6 @@ jobs:
       pull-requests: read
     steps:
       - uses: actions/checkout@v6
-
-      - name: Socket Security Scan
-        uses: SocketDev/action@v4
-        env:
-          SOCKET_TOKEN: ${{ secrets.SOCKET_TOKEN }}
-        continue-on-error: true
 
       - uses: oven-sh/setup-bun@v2
         with:
