@@ -236,7 +236,12 @@
     textarea {
       resize: vertical;
       min-height: 100px;
+      max-height: 60vh;
+      overflow-y: auto;
+      box-sizing: border-box;
     }
+    #feedback-text { min-height: 220px; }
+    #issue-body    { min-height: 220px; }
 
     /* Buttons */
     .btn {
@@ -1357,7 +1362,7 @@
         </div>
         <div class="form-row">
           <label for="issue-body">Description</label>
-          <textarea id="issue-body" style="min-height:120px;" placeholder="Issue details..."></textarea>
+          <textarea id="issue-body" placeholder="Issue details..."></textarea>
         </div>
         <div class="btn-row">
           <button class="btn btn-green" id="submit-btn" disabled>Submit Issue</button>
@@ -2042,8 +2047,18 @@
       setTimeout(() => repoDropdown.classList.remove('open'), 150);
     });
 
+    // Auto-resize textareas up to 60% of viewport height
+    function glassAutoResize(el) {
+      if (!el) return;
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, window.innerHeight * 0.6) + 'px';
+    }
+
     // Feedback input
-    feedbackText.addEventListener('input', checkDraftState);
+    feedbackText.addEventListener('input', (e) => {
+      glassAutoResize(e.target);
+      checkDraftState();
+    });
 
     function checkDraftState() {
       const hasText = feedbackText.value.trim().length > 0;
@@ -2058,7 +2073,16 @@
 
     // Issue form fields update submit button
     issueTitleEl.addEventListener('input', updateUI);
-    issueBodyEl.addEventListener('input', updateUI);
+    issueBodyEl.addEventListener('input', (e) => {
+      glassAutoResize(e.target);
+      updateUI();
+    });
+
+    // Re-fit textareas when the viewport changes size
+    window.addEventListener('resize', () => {
+      glassAutoResize(feedbackText);
+      if (issueBodyEl.offsetParent !== null) glassAutoResize(issueBodyEl);
+    });
 
     // Image attachment
     function attachImage(file) {
@@ -2157,6 +2181,8 @@
         if (data.type) {
           issueTypeEl.value = data.type;
         }
+        // Issue form may be hidden when this fires; resize after it becomes visible
+        requestAnimationFrame(() => glassAutoResize(issueBodyEl));
         // Store extended triage fields for issue submission
         lastTriageMeta = {
           priority: data.priority || null,
@@ -2245,6 +2271,8 @@
         issueTitleEl.value = '';
         issueBodyEl.value = '';
         issueTypeEl.value = 'bug';
+        glassAutoResize(feedbackText);
+        glassAutoResize(issueBodyEl);
         lastTriageMeta = null;
         clearImage();
         clearAiBadge();

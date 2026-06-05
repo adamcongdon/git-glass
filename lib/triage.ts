@@ -98,13 +98,23 @@ const DEFAULT_TRIAGE_EXTRAS = {
   effort: "M" as Effort,
 };
 
-export function parseTriageResponse(raw: string): TriageResult {
+export function appendOriginalFeedback(body: string, original: string): string {
+  if (!original.trim()) return body;
+  const escaped = original
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return `${body}\n\n<details>\n<summary>Original feedback</summary>\n\n\`\`\`\n${escaped}\n\`\`\`\n\n</details>`;
+}
+
+export function parseTriageResponse(raw: string, originalText: string = ""): TriageResult {
   try {
     const cleaned = raw.replace(/^```json?\n?|```$/gm, "").trim();
     const parsed = JSON.parse(cleaned);
 
     const title = typeof parsed.title === "string" ? parsed.title : "";
-    const body = typeof parsed.body === "string" ? parsed.body : raw;
+    const parsedBody = typeof parsed.body === "string" ? parsed.body : raw;
+    const body = appendOriginalFeedback(parsedBody, originalText);
     const typeRaw = parsed.type;
     const type: IssueType = VALID_TYPES.includes(typeRaw) ? typeRaw : "question";
     const suggestedRepo = typeof parsed.suggested_repo === "string" ? parsed.suggested_repo : null;
@@ -130,7 +140,7 @@ export function parseTriageResponse(raw: string): TriageResult {
 
     return { title, body, type, suggestedRepo, priority, component, priorityRationale, rootCause, suggestedFix, effort };
   } catch {
-    return { title: "", body: raw, type: "question", suggestedRepo: null, ...DEFAULT_TRIAGE_EXTRAS };
+    return { title: "", body: appendOriginalFeedback(raw, originalText), type: "question", suggestedRepo: null, ...DEFAULT_TRIAGE_EXTRAS };
   }
 }
 
@@ -281,5 +291,5 @@ export async function triageFeedback(
   }
 
   if (!content) return { title: "", body: text, type: "question", suggestedRepo: null, ...DEFAULT_TRIAGE_EXTRAS };
-  return parseTriageResponse(content);
+  return parseTriageResponse(content, text);
 }
