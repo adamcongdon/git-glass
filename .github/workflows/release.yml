@@ -37,7 +37,7 @@ jobs:
             echo "all_passed=false" >> $GITHUB_OUTPUT
           fi
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         if: steps.gate.outputs.all_passed == 'true'
         with:
           fetch-depth: 0
