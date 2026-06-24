@@ -759,12 +759,15 @@ app.post("/api/restart", async (c) => {
 // Static file routes
 app.get("/manifest.json", () => serveFile(join(PUBLIC_DIR, "manifest.json"), "application/manifest+json"));
 app.get("/sw.js", () => serveFile(join(PUBLIC_DIR, "sw.js"), "application/javascript"));
+app.get("/favicon.ico", () => serveFile(join(PUBLIC_DIR, "favicon.ico"), "image/x-icon"));
 app.get("/icons/:file", (c) => {
   const file = c.req.param("file");
-  if (!/^[\w\-\.]+\.png$/.test(file)) {
+  const m = file.match(/^[\w\-\.]+\.(png|svg)$/);
+  if (!m) {
     return new Response("Not found", { status: 404 });
   }
-  return serveFile(join(PUBLIC_DIR, "icons", file), "image/png");
+  const type = m[1] === "svg" ? "image/svg+xml" : "image/png";
+  return serveFile(join(PUBLIC_DIR, "icons", file), type);
 });
 
 // All other routes serve app.html
