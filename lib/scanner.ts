@@ -47,10 +47,15 @@ export function parseRemoteUrl(url: string): ParsedRemote | null {
   }
 
   // HTTPS: https://github.com/owner/repo.git
+  // Authority may carry userinfo (https://user@host/...) or an embedded token
+  // (https://gho_XXX@host/...). Strip it so `host` is a bare hostname.
   const httpsMatch = url.match(/^https?:\/\/([^/]+)\/([^/]+)\/([^/]+?)(?:\.git)?$/);
   if (httpsMatch) {
+    const authority = httpsMatch[1];
+    const atIdx = authority.lastIndexOf("@");
+    const host = atIdx >= 0 ? authority.slice(atIdx + 1) : authority;
     return {
-      host: httpsMatch[1],
+      host,
       owner: httpsMatch[2],
       repo: httpsMatch[3],
     };

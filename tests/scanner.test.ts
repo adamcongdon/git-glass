@@ -79,6 +79,24 @@ describe("parseRemoteUrl", () => {
       repo: "my-repo",
     });
   });
+
+  test("strips userinfo from HTTPS remote", () => {
+    const result = parseRemoteUrl("https://adamcongdon@github.com/owner/repo.git");
+    expect(result).toEqual({
+      host: "github.com",
+      owner: "owner",
+      repo: "repo",
+    });
+  });
+
+  test("strips embedded token from HTTPS remote", () => {
+    const result = parseRemoteUrl("https://gho_FAKETOKEN@github.com/owner/repo.git");
+    expect(result).toEqual({
+      host: "github.com",
+      owner: "owner",
+      repo: "repo",
+    });
+  });
 });
 
 describe("shouldSkipDirectory", () => {
