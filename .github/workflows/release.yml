@@ -41,29 +41,96 @@ jobs:
         if: steps.gate.outputs.all_passed == 'true'
         with:
           fetch-depth: 0
+          # Check out the branch tip (not the detached SHA) so the cosmetic
+          # package.json bump can be pushed back.
+          ref: ${{ github.event.workflow_run.head_branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read version from package.json
+      # Determine the release version automatically from Conventional Commit
+      # messages since the last tag — no manual package.json bump required.
+      #   <type>!:  / "BREAKING CHANGE"  -> major
+      #   feat:                          -> minor
+      #   fix: / perf:                   -> patch
+      #   only chore/docs/ci/etc.        -> no release
+      # The app reports its version via `git describe --tags` (lib/version.ts),
+      # so the git tag is the source of truth; package.json is kept in sync only
+      # for cosmetic/tooling consistency.
+      - name: Compute next version from commits
         if: steps.gate.outputs.all_passed == 'true'
         id: version
-        run: echo "version=v$(jq -r .version package.json)" >> $GITHUB_OUTPUT
+        run: |
+          set -euo pipefail
+          LAST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n1 || true)
+          if [ -z "$LAST_TAG" ]; then
+            BASE="0.0.0"; RANGE="HEAD"
+          else
+            BASE="${LAST_TAG#v}"; RANGE="${LAST_TAG}..HEAD"
+          fi
 
-      - name: Check if tag already exists
-        if: steps.gate.outputs.all_passed == 'true'
+          LOG=$(git log $RANGE --pretty=format:'%s%n%b' || true)
+          if [ -z "$(echo "$LOG" | tr -d '[:space:]')" ]; then
+            echo "No new commits since ${LAST_TAG:-<root>} — nothing to release."
+            echo "release=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+
+          BUMP=""
+          if echo "$LOG" | grep -qE '^[a-z]+(\([^)]*\))?!:' || echo "$LOG" | grep -q 'BREAKING CHANGE'; then
+            BUMP=major
+          elif echo "$LOG" | grep -qE '^feat(\([^)]*\))?:'; then
+            BUMP=minor
+          elif echo "$LOG" | grep -qE '^(fix|perf)(\([^)]*\))?:'; then
+            BUMP=patch
+          fi
+
+          if [ -z "$BUMP" ]; then
+            echo "Only non-release commits since ${LAST_TAG:-<root>} — skipping release."
+            echo "release=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+
+          IFS=. read -r MA MI PA <<< "$BASE"
+          case "$BUMP" in
+            major) MA=$((MA + 1)); MI=0; PA=0;;
+            minor) MI=$((MI + 1)); PA=0;;
+            patch) PA=$((PA + 1));;
+          esac
+          NEXT="v${MA}.${MI}.${PA}"
+          echo "Bump: $BUMP   ${LAST_TAG:-<root>} -> $NEXT"
+          echo "version=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "release=true" >> "$GITHUB_OUTPUT"
+
+      - name: Guard against existing tag
+        if: steps.gate.outputs.all_passed == 'true' && steps.version.outputs.release == 'true'
         id: tag_check
         run: |
           if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag ${{ steps.version.outputs.version }} already exists — skipping."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create tag and GitHub Release
-        if: steps.gate.outputs.all_passed == 'true' && steps.tag_check.outputs.exists == 'false'
+      - name: Tag, sync package.json, and create GitHub Release
+        if: steps.gate.outputs.all_passed == 'true' && steps.version.outputs.release == 'true' && steps.tag_check.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git tag "${{ steps.version.outputs.version }}"
-          git push origin "${{ steps.version.outputs.version }}"
-          gh release create "${{ steps.version.outputs.version }}" \
-            --title "${{ steps.version.outputs.version }}" \
-            --generate-notes
+          set -euo pipefail
+          NEXT="${{ steps.version.outputs.version }}"
+
+          # Keep package.json's version field in sync (cosmetic). [skip ci] stops
+          # this commit from re-triggering CI -> Release (no release loop).
+          jq ".version = \"${NEXT#v}\"" package.json > package.json.tmp
+          mv package.json.tmp package.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          if git diff --cached --quiet; then
+            echo "package.json already at ${NEXT#v}."
+          else
+            git commit -m "chore(release): $NEXT [skip ci]"
+            git push origin "HEAD:${{ github.event.workflow_run.head_branch }}"
+          fi
+
+          git tag "$NEXT"
+          git push origin "$NEXT"
+          gh release create "$NEXT" --title "$NEXT" --generate-notes
