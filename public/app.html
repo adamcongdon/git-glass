@@ -407,6 +407,59 @@
       margin-bottom: 8px;
     }
 
+    /* Learned routing rows */
+    #learning-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+    .learning-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px;
+      background: var(--bg-elevated, rgba(255,255,255,0.03));
+      border: 1px solid var(--border, rgba(255,255,255,0.08));
+      border-radius: 4px;
+    }
+    .learning-main { flex: 1; min-width: 0; }
+    .learning-repo {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent-blue);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .learning-corrected {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--accent-green, #22c55e);
+      border: 1px solid var(--accent-green, #22c55e);
+      border-radius: 3px;
+      padding: 0 4px;
+    }
+    .learning-text {
+      font-size: 12px;
+      color: var(--fg, #ddd);
+      margin: 2px 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .learning-meta { font-size: 11px; color: var(--muted); }
+    .learning-del {
+      flex: none;
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .learning-del:hover { color: var(--accent-red, #ef4444); background: rgba(239,68,68,0.1); }
+
     .scan-path-row {
       display: flex;
       gap: 6px;
@@ -562,6 +615,13 @@
       padding: 1px 6px;
       margin-left: 6px;
       vertical-align: middle;
+      cursor: default;
+    }
+    /* Learned (from your past corrections) — green to distinguish from AI guess */
+    #ai-suggested-badge.learned {
+      background: rgba(34, 197, 94, 0.15);
+      border-color: var(--accent-green, #22c55e);
+      color: var(--accent-green, #22c55e);
     }
 
     /* Responsive */
@@ -1460,6 +1520,13 @@
           <button id="add-gitlab-token">+ Add token</button>
         </div>
 
+        <div class="config-section" id="config-learning-section">
+          <h3>Learned Routing</h3>
+          <p class="config-hint" style="margin-bottom:8px;">Feedback-to-repo examples Git Glass learned from your submissions. Delete any that are wrong.</p>
+          <div id="learning-list"></div>
+          <button id="learning-clear-btn" class="btn" style="margin-top:8px;width:fit-content;display:none;">Clear all</button>
+        </div>
+
         <div class="config-section" id="config-updates-section">
           <h3>Updates</h3>
           <div style="font-size:13px;margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap;">
@@ -1667,6 +1734,8 @@
     let successTimer = null;
     let lastTriageMeta = null;
     let selectedAccountOverride = null;
+    let lastFeedbackText = '';      // raw feedback that produced the current triage
+    let lastAiSuggestedRepo = null; // repo the AI/learning suggested at triage time
 
     // DOM refs
     const repoCard = document.getElementById('repo-card');
@@ -1944,7 +2013,8 @@
       // type === 'unknown' → leave chipEl empty
     }
 
-    function selectRepo(repo, save = true, showAiBadge = false) {
+    // badge: null | { text, learned, title }
+    function selectRepo(repo, save = true, badge = null) {
       selectedRepo = repo;
       selectedRepoEl.innerHTML = '';
       clearAiBadge();
@@ -1969,11 +2039,13 @@
       targetLine.className = 'repo-meta';
       targetLine.textContent = `target: ${repo.host}/${repo.owner}/${repo.repo}`;
       selectedRepoEl.append(pathLine, remoteLine, targetLine);
-      if (showAiBadge) {
-        const badge = document.createElement('span');
-        badge.id = 'ai-suggested-badge';
-        badge.textContent = 'AI suggested';
-        repoSearch.insertAdjacentElement('afterend', badge);
+      if (badge) {
+        const badgeEl = document.createElement('span');
+        badgeEl.id = 'ai-suggested-badge';
+        badgeEl.textContent = badge.text;
+        if (badge.learned) badgeEl.classList.add('learned');
+        if (badge.title) badgeEl.title = badge.title;
+        repoSearch.insertAdjacentElement('afterend', badgeEl);
       }
 
       repoDropdown.classList.remove('open');
@@ -2197,11 +2269,25 @@
           suggestedFix: data.suggestedFix || null,
           effort: data.effort || null,
         };
-        // Handle AI repo suggestion
+        // Remember the raw feedback + suggestion so submit can feed the learner
+        lastFeedbackText = text;
+        lastAiSuggestedRepo = data.suggestedRepo || null;
+        // Handle repo suggestion (AI guess or learned override)
         if (data.suggestedRepo) {
           const found = repos.find(r => r.name === data.suggestedRepo);
           if (found) {
-            selectRepo(found, true, true);
+            const learned = data.suggestedRepoSource === 'learned';
+            const badge = learned
+              ? {
+                  text: data.learnedMatchCount > 0
+                    ? `Learned (${data.learnedMatchCount})`
+                    : 'Learned',
+                  learned: true,
+                  title: `Matched your past corrections for this repo` +
+                    (data.learnedMatchCount > 0 ? ` (${data.learnedMatchCount} example${data.learnedMatchCount === 1 ? '' : 's'})` : ''),
+                }
+              : { text: 'AI suggested', learned: false };
+            selectRepo(found, true, badge);
           }
         }
         setState(STATES.TRIAGED);
@@ -2237,6 +2323,12 @@
         }
         if (selectedAccountOverride) {
           issueBody.overrideAccount = selectedAccountOverride;
+        }
+        // Learning signal: raw feedback + what was suggested, so Git Glass learns
+        // which repo this kind of feedback belongs to (and notices corrections).
+        if (lastFeedbackText) {
+          issueBody.originalText = lastFeedbackText;
+          if (lastAiSuggestedRepo) issueBody.aiSuggestedRepo = lastAiSuggestedRepo;
         }
         const resp = await fetch('/api/issues', {
           method: 'POST',
@@ -2310,6 +2402,7 @@
     // Config panel — wired to both gear-btn (legacy inside view-feedback) and glass-settings-btn (tabbar)
     async function openConfig() {
       configOverlay.classList.add('open');
+      loadLearning();
       const [cfgResp, accountsResp, versionResp] = await Promise.allSettled([
         fetch('/api/config'),
         fetch('/api/gh-accounts'),
@@ -2350,6 +2443,113 @@
     configBackdrop.addEventListener('click', closeConfig);
 
     document.getElementById('glass-settings-btn').addEventListener('click', openConfig);
+
+    // ── Learned routing panel ─────────────────────────────────────────────────
+    const learningList = document.getElementById('learning-list');
+    const learningClearBtn = document.getElementById('learning-clear-btn');
+
+    function relativeTime(ts) {
+      const s = Math.max(0, (Date.now() - ts) / 1000);
+      if (s < 60) return 'just now';
+      const m = s / 60;
+      if (m < 60) return `${Math.floor(m)}m ago`;
+      const h = m / 60;
+      if (h < 24) return `${Math.floor(h)}h ago`;
+      return `${Math.floor(h / 24)}d ago`;
+    }
+
+    async function loadLearning() {
+      learningList.textContent = 'Loading…';
+      try {
+        const resp = await fetch('/api/learning');
+        if (!resp.ok) throw new Error('failed');
+        const { examples } = await resp.json();
+        renderLearning(examples || []);
+      } catch {
+        learningList.textContent = '';
+        const err = document.createElement('div');
+        err.className = 'config-hint';
+        err.textContent = 'Could not load learned examples.';
+        learningList.appendChild(err);
+        learningClearBtn.style.display = 'none';
+      }
+    }
+
+    function renderLearning(examples) {
+      learningList.innerHTML = '';
+      if (examples.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'config-hint';
+        empty.textContent = 'Nothing learned yet — submit a few issues and corrections will show up here.';
+        learningList.appendChild(empty);
+        learningClearBtn.style.display = 'none';
+        return;
+      }
+      learningClearBtn.style.display = 'block';
+      for (const ex of examples) {
+        const row = document.createElement('div');
+        row.className = 'learning-row';
+
+        const main = document.createElement('div');
+        main.className = 'learning-main';
+        const repoLine = document.createElement('div');
+        repoLine.className = 'learning-repo';
+        repoLine.textContent = ex.repo;
+        if (ex.corrected) {
+          const tag = document.createElement('span');
+          tag.className = 'learning-corrected';
+          tag.textContent = 'correction';
+          repoLine.appendChild(tag);
+        }
+        const textLine = document.createElement('div');
+        textLine.className = 'learning-text';
+        textLine.textContent = ex.text;
+        const metaLine = document.createElement('div');
+        metaLine.className = 'learning-meta';
+        metaLine.textContent = `${ex.host} · ${relativeTime(ex.ts)}`;
+        main.append(repoLine, textLine, metaLine);
+
+        const del = document.createElement('button');
+        del.className = 'learning-del';
+        del.textContent = '✕';
+        del.title = 'Delete this example';
+        del.addEventListener('click', () => deleteLearning(ex, row));
+
+        row.append(main, del);
+        learningList.appendChild(row);
+      }
+    }
+
+    async function deleteLearning(ex, rowEl) {
+      try {
+        const resp = await fetch('/api/learning/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: ex.text, repo: ex.repo, host: ex.host }),
+        });
+        if (!resp.ok) throw new Error('failed');
+        rowEl.remove();
+        if (!learningList.querySelector('.learning-row')) renderLearning([]);
+      } catch {
+        rowEl.style.opacity = '1';
+        alert('Could not delete that example.');
+      }
+    }
+
+    learningClearBtn.addEventListener('click', async () => {
+      if (!confirm('Forget all learned routing examples? This cannot be undone.')) return;
+      try {
+        const resp = await fetch('/api/learning/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ all: true }),
+        });
+        if (!resp.ok) throw new Error('failed');
+        renderLearning([]);
+      } catch {
+        alert('Could not clear learned examples.');
+      }
+    });
 
     const AI_DEFAULT_MODELS = {
       'github-copilot': 'claude-haiku-4.5',

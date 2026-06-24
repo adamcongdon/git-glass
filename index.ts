@@ -15,6 +15,7 @@ import { validateRepoPath, getAllRepoStatuses, runGit } from "./lib/gitStatus";
 import { gitPull, gitPush, pullAllSafe, deleteRepo, openVSCode, revealInFinder } from "./lib/gitOps";
 import { isAvailable as inferenceAvailable, run as inferenceRun } from "./lib/inference";
 import { getLeaderboard } from "./lib/leaderboard";
+import { evaluate as evaluateLearning, learn as learnRouting, listExamples, deleteExample, clearStore } from "./lib/repoLearning";
 
 const app = new Hono();
 
@@ -226,6 +227,10 @@ app.post("/api/triage", async (c) => {
     }
   }
 
+  // Learning: few-shot precedent for the prompt + deterministic override decision.
+  const candidates = parsed.data.repos ?? [];
+  const { fewShot, decision } = await evaluateLearning(parsed.data.text, candidates);
+
   try {
     const result = await triageFeedback(
       parsed.data.text,
@@ -233,16 +238,31 @@ app.post("/api/triage", async (c) => {
       parsed.data.imageBase64,
       parsed.data.imageMimeType,
       parsed.data.repos,
+      fewShot.map((e) => ({ text: e.text, repo: e.repo })),
     );
 
     // Validate suggested repo against the request's repo list (server-side guard)
     let suggestedRepo: string | null = result.suggestedRepo;
     if (suggestedRepo !== null) {
-      const repoNameSet = new Set((parsed.data.repos ?? []).map((r) => r.name));
+      const repoNameSet = new Set(candidates.map((r) => r.name));
       if (!repoNameSet.has(suggestedRepo)) {
         console.log(`[triage] suggested_repo "${suggestedRepo}" not in request list — coercing to null`);
         suggestedRepo = null;
       }
+    }
+
+    // Deterministic override: when past corrections strongly match this feedback,
+    // the learned pick wins over the AI's guess (candidate already validated).
+    let suggestedRepoSource: "ai" | "learned" | null = suggestedRepo ? "ai" : null;
+    const learnedMatch = decision.matches[0] ?? null;
+    if (decision.suggestedRepo && decision.suggestedRepo !== suggestedRepo) {
+      console.log(
+        `[triage] learned override "${decision.suggestedRepo}" (conf ${decision.confidence.toFixed(2)}) over AI "${suggestedRepo ?? "null"}"`,
+      );
+      suggestedRepo = decision.suggestedRepo;
+      suggestedRepoSource = "learned";
+    } else if (decision.suggestedRepo && decision.suggestedRepo === suggestedRepo) {
+      suggestedRepoSource = "learned"; // learning agrees with the AI
     }
 
     return c.json({
@@ -250,6 +270,9 @@ app.post("/api/triage", async (c) => {
       body: result.body,
       type: result.type,
       suggestedRepo,
+      suggestedRepoSource,
+      learnedConfidence: learnedMatch?.repo === suggestedRepo ? learnedMatch.confidence : 0,
+      learnedMatchCount: learnedMatch?.repo === suggestedRepo ? learnedMatch.matchCount : 0,
       priority: result.priority,
       component: result.component,
       priorityRationale: result.priorityRationale,
@@ -276,6 +299,11 @@ const IssueRequestSchema = z.object({
   rootCause: z.string().max(2000).optional(),
   suggestedFix: z.string().max(2000).optional(),
   effort: z.enum(VALID_EFFORTS).optional(),
+  // Learning signal: the raw feedback that produced this issue, and the repo the
+  // AI suggested at triage time (so we can flag user corrections). Both optional —
+  // issues created outside the triage flow simply don't contribute a learning example.
+  originalText: z.string().max(10000).optional(),
+  aiSuggestedRepo: z.string().max(140).optional(),
 });
 
 app.post("/api/issues", async (c) => {
@@ -302,6 +330,19 @@ app.post("/api/issues", async (c) => {
   const config = await readConfig();
   const target = `${repoInfo.host}/${repoInfo.owner}/${repoInfo.repo}`;
   const isGitHub = repoInfo.host.toLowerCase() === "github.com";
+
+  // Record the (feedback -> confirmed repo) pair for repo-routing learning. Only
+  // when the issue came from the triage flow (originalText present). Best-effort.
+  const recordLearning = async () => {
+    if (!parsed.data.originalText?.trim()) return;
+    const repoName = `${repoInfo.owner}/${repoInfo.repo}`;
+    await learnRouting({
+      text: parsed.data.originalText,
+      repo: repoName,
+      host: repoInfo.host,
+      corrected: !!parsed.data.aiSuggestedRepo && parsed.data.aiSuggestedRepo !== repoName,
+    });
+  };
 
   // GitHub flow: gh token via per-owner mapping → default account
   if (isGitHub) {
@@ -355,6 +396,7 @@ app.post("/api/issues", async (c) => {
         enrichmentOps.push(postTriageComment(repoInfo.owner, repoInfo.repo, issueToken, result.number, triageData));
       }
       await Promise.all(enrichmentOps);
+      await recordLearning();
 
       return c.json(result);
     } catch (err: any) {
@@ -390,6 +432,7 @@ app.post("/api/issues", async (c) => {
       },
       parsed.data.imageBase64,
     );
+    await recordLearning();
     return c.json(result);
   } catch (err: any) {
     const status = err.status ?? 500;
@@ -397,6 +440,56 @@ app.post("/api/issues", async (c) => {
     const context = ` (target: ${target})`;
     console.error(`[issues] ${status} ${code}${context}: ${err.message}`);
     return errorResponse(code, `${err.message}${context}`, status);
+  }
+});
+
+// ─── Repo-routing learning ────────────────────────────────────────────────────
+
+// GET /api/learning — list stored routing examples (newest first)
+app.get("/api/learning", async (c) => {
+  try {
+    const examples = await listExamples();
+    return c.json({ examples });
+  } catch (err: any) {
+    return errorResponse("LEARNING_READ_ERROR", err.message, 500);
+  }
+});
+
+// POST /api/learning/delete — remove one example by key, or clear all
+const LearningDeleteSchema = z.union([
+  z.object({ all: z.literal(true) }),
+  z.object({
+    text: z.string().min(1).max(600),
+    repo: z.string().min(1).max(140),
+    host: HostnameSchema,
+  }),
+]);
+
+app.post("/api/learning/delete", async (c) => {
+  const csrf = sameOriginGuard(c);
+  if (csrf) return csrf;
+
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return errorResponse("INVALID_JSON", "Request body must be valid JSON", 400);
+  }
+
+  const parsed = LearningDeleteSchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse("VALIDATION_ERROR", parsed.error.message, 400);
+  }
+
+  try {
+    if ("all" in parsed.data) {
+      await clearStore();
+      return c.json({ ok: true, cleared: true });
+    }
+    const removed = await deleteExample(parsed.data);
+    return c.json({ ok: true, removed });
+  } catch (err: any) {
+    return errorResponse("LEARNING_DELETE_ERROR", err.message, 500);
   }
 });
 
