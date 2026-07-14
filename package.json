@@ -1,6 +1,6 @@
 {
   "name": "feedback-tool",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "scripts": {
     "start": "bun run index.ts",
     "dev": "bun --watch run index.ts",
