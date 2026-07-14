@@ -3,7 +3,7 @@ import { z } from "zod";
 import { join, resolve as resolvePath } from "path";
 import { readFile } from "fs/promises";
 import { readConfig, writeConfig, redactConfig, type Config } from "./lib/config";
-import { getVersionInfo } from "./lib/version";
+import { getVersionInfo, performSelfUpdate } from "./lib/version";
 import { scanRepos, parseRemoteUrl } from "./lib/scanner";
 import { triageFeedback, type AiConfig, VALID_PRIORITIES, VALID_COMPONENTS, VALID_EFFORTS } from "./lib/triage";
 import { AI_PROVIDERS } from "./lib/config";
@@ -871,32 +871,28 @@ app.get("/api/version", async (c) => {
   }
 });
 
-// POST /api/update — run `git pull --ff-only` on the dashboard's own repo
+// POST /api/update — fast-forward the dashboard's own checkout to the latest release tag.
+// See performSelfUpdate() for why this targets the release tag instead of `git pull`.
+// The client reads `ok` (else shows `output` as the error) and `changed` (only restarts
+// when HEAD actually moved). `alreadyUpToDate` is kept for backward compatibility.
 app.post("/api/update", async (c) => {
   const csrf = sameOriginGuard(c);
   if (csrf) return csrf;
 
   try {
-    const proc = Bun.spawn(["git", "pull", "--ff-only"], {
-      cwd: SELF_REPO_DIR,
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "echo" },
+    const result = await performSelfUpdate(SELF_REPO_DIR);
+    return c.json({
+      ok: result.ok,
+      changed: result.changed,
+      status: result.status,
+      output: result.message,
+      alreadyUpToDate: result.status === "already-current",
     });
-    const stdoutP = new Response(proc.stdout).text();
-    const stderrP = new Response(proc.stderr).text();
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => { proc.kill(); reject(new Error("git pull timed out after 30s")); }, 30_000),
-    );
-    const [stdout, stderr] = await Promise.race([Promise.all([stdoutP, stderrP]), timeout]);
-    const exitCode = await proc.exited;
-    const combined = [stdout, stderr].filter(Boolean).join("\n").trim();
-    const maxLen = 8000;
-    const output = combined.length > maxLen ? combined.slice(0, maxLen) + "\n\n... [output truncated]" : combined;
-    const alreadyUpToDate = /Already up to date/i.test(output);
-    return c.json({ ok: exitCode === 0, output, alreadyUpToDate });
   } catch (err: any) {
-    return c.json({ ok: false, output: String(err?.message ?? err), alreadyUpToDate: false }, 200);
+    return c.json(
+      { ok: false, changed: false, status: "error", output: String(err?.message ?? err), alreadyUpToDate: false },
+      200,
+    );
   }
 });
 
@@ -937,27 +933,16 @@ const PORT = config.port ?? 7777;
 // the server back on the new commit. On failure we log and continue with the current code.
 if (config.updates?.autoUpdate) {
   try {
+    // Gate the fetch on a cheap cached version check so we don't hit the network
+    // on every launch when already current.
     const vInfo = await getVersionInfo();
     if (vInfo.updateAvailable) {
-      const proc = Bun.spawn(["git", "pull", "--ff-only"], {
-        cwd: SELF_REPO_DIR,
-        stdout: "pipe",
-        stderr: "pipe",
-        env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "echo" },
-      });
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => { proc.kill(); reject(new Error("auto-update timed out after 30s")); }, 30_000),
-      );
-      await Promise.race([
-        Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]),
-        timeout,
-      ]);
-      const exitCode = await proc.exited;
-      if (exitCode === 0) {
-        console.log("[auto-update] Pull succeeded — restarting for new version.");
-        process.exit(0); // launchd KeepAlive=true restarts the process
-      } else {
-        console.error("[auto-update] git pull failed (exit", exitCode, ") — starting with current version.");
+      const result = await performSelfUpdate(SELF_REPO_DIR);
+      if (result.changed) {
+        console.log(`[auto-update] ${result.message} — restarting for new version.`);
+        process.exit(0); // launchd KeepAlive=true restarts the process on the new commit
+      } else if (result.status === "cannot-fast-forward" || result.status === "error") {
+        console.error(`[auto-update] ${result.message} — starting with current version.`);
       }
     }
   } catch (err: any) {

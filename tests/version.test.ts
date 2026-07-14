@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { isNewerTag, getVersionInfo, _resetVersionCacheForTesting } from "../lib/version";
+import { isNewerTag, getVersionInfo, planSelfUpdate, _resetVersionCacheForTesting } from "../lib/version";
 
 describe("isNewerTag", () => {
   test("patch bump: v0.1.1 newer than v0.1.0", () => {
@@ -179,5 +179,72 @@ describe("getVersionInfo cache + force", () => {
     const v = await getVersionInfo(true);
     expect(v.changelog).toBe(null);
     expect(v.latest).toBe(null);
+  });
+});
+
+describe("planSelfUpdate", () => {
+  // Baseline: on a release branch, strictly behind the release — the normal update path.
+  const behind = {
+    latestTag: "v0.5.0",
+    tagCommit: "aaaa",
+    headCommit: "bbbb",
+    branch: "main",
+    tagIsAncestorOfHead: false,
+    headIsAncestorOfTag: true,
+  };
+
+  test("fast-forwards when HEAD is strictly behind the release", () => {
+    const plan = planSelfUpdate(behind);
+    expect(plan.status).toBe("fast-forward");
+    expect(plan.message).toContain("v0.5.0");
+  });
+
+  test("already-current when HEAD already contains the release commit", () => {
+    const plan = planSelfUpdate({ ...behind, tagIsAncestorOfHead: true, headIsAncestorOfTag: false });
+    expect(plan.status).toBe("already-current");
+  });
+
+  test("cannot-fast-forward on a diverged branch, and names the branch", () => {
+    const plan = planSelfUpdate({
+      ...behind,
+      branch: "dev",
+      tagIsAncestorOfHead: false,
+      headIsAncestorOfTag: false,
+    });
+    expect(plan.status).toBe("cannot-fast-forward");
+    expect(plan.message).toContain('branch "dev"');
+  });
+
+  test("cannot-fast-forward reports 'detached HEAD' when branch resolves to HEAD", () => {
+    const plan = planSelfUpdate({
+      ...behind,
+      branch: "HEAD",
+      tagIsAncestorOfHead: false,
+      headIsAncestorOfTag: false,
+    });
+    expect(plan.status).toBe("cannot-fast-forward");
+    expect(plan.message).toContain("detached HEAD");
+  });
+
+  test("unavailable when the release check failed (no latest tag)", () => {
+    const plan = planSelfUpdate({ ...behind, latestTag: null });
+    expect(plan.status).toBe("unavailable");
+  });
+
+  test("unavailable when the release tag can't be resolved locally", () => {
+    const plan = planSelfUpdate({ ...behind, tagCommit: null });
+    expect(plan.status).toBe("unavailable");
+    expect(plan.message).toContain("v0.5.0");
+  });
+
+  test("unavailable when HEAD can't be resolved", () => {
+    const plan = planSelfUpdate({ ...behind, headCommit: null });
+    expect(plan.status).toBe("unavailable");
+  });
+
+  test("already-current takes precedence over a possible fast-forward", () => {
+    // Defensive: if both ancestor checks are somehow true (HEAD === tag), treat as current.
+    const plan = planSelfUpdate({ ...behind, tagIsAncestorOfHead: true, headIsAncestorOfTag: true });
+    expect(plan.status).toBe("already-current");
   });
 });
