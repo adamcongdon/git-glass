@@ -4274,6 +4274,14 @@
           resetButtons();
           return;
         }
+        // Only restart when HEAD actually moved. An "already-current" result (ok but
+        // unchanged) means there's nothing to load — restarting would be pointless.
+        if (!data.changed) {
+          glassCloseUpdateModal();
+          showGlassBanner(data.output || 'Already on the latest version.', 'info', 4000);
+          resetButtons();
+          return;
+        }
         glassCloseUpdateModal();
         try {
           await glassApi('/api/restart', {});

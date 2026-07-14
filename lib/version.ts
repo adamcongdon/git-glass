@@ -159,3 +159,172 @@ export async function getVersionInfo(force = false): Promise<VersionInfo> {
   _cache = { ...result, expiresAt: Date.now() + CACHE_TTL };
   return result;
 }
+
+// ─── Self-update ────────────────────────────────────────────────────────────
+//
+// The updater targets the latest release *tag* directly rather than running a
+// bare `git pull`. A bare pull advances only the current branch's upstream, so
+// it silently reports "Already up to date" whenever the checkout is on a branch
+// that doesn't contain the release (e.g. `dev`), and errors outright on a branch
+// with no tracking info. Fast-forwarding to the release commit works regardless
+// of branch/tracking state and lets us report a clear reason when it can't.
+
+export type SelfUpdateStatus =
+  | "already-current"
+  | "fast-forward"
+  | "cannot-fast-forward"
+  | "unavailable";
+
+export interface SelfUpdatePlan {
+  status: SelfUpdateStatus;
+  message: string;
+}
+
+// Pure decision function — given the facts gathered from git, decide what to do.
+// Exported so the branching logic can be unit-tested without spawning git.
+export function planSelfUpdate(input: {
+  latestTag: string | null;      // GitHub "latest release" tag_name, or null if the check failed
+  tagCommit: string | null;      // commit the tag resolves to locally, or null if unresolved
+  headCommit: string | null;     // current HEAD commit, or null if rev-parse failed
+  branch: string | null;         // current branch; "HEAD" or empty means detached
+  tagIsAncestorOfHead: boolean;  // HEAD already contains the release commit (at or ahead)
+  headIsAncestorOfTag: boolean;  // a fast-forward to the release is possible
+}): SelfUpdatePlan {
+  const { latestTag, tagCommit, headCommit, branch, tagIsAncestorOfHead, headIsAncestorOfTag } = input;
+
+  if (!latestTag) {
+    return {
+      status: "unavailable",
+      message: "Couldn't determine the latest release — the GitHub check failed. Try again shortly.",
+    };
+  }
+  if (!headCommit) {
+    return {
+      status: "unavailable",
+      message: "Couldn't resolve the current commit (git rev-parse HEAD failed).",
+    };
+  }
+  if (!tagCommit) {
+    return {
+      status: "unavailable",
+      message: `Release ${latestTag} isn't available locally even after fetching. Check remote access and try again.`,
+    };
+  }
+  if (tagIsAncestorOfHead) {
+    return { status: "already-current", message: `Already on ${latestTag} (or newer). Nothing to update.` };
+  }
+  if (headIsAncestorOfTag) {
+    return { status: "fast-forward", message: `Fast-forwarding to ${latestTag}.` };
+  }
+  const where = branch && branch !== "HEAD" ? `branch "${branch}"` : "a detached HEAD";
+  return {
+    status: "cannot-fast-forward",
+    message:
+      `Can't fast-forward to ${latestTag}: your checkout (${where}) has diverged from the release ` +
+      `commit and can't be advanced automatically. Switch to the release branch and reset to it ` +
+      "(e.g. `git checkout main && git fetch && git reset --hard origin/main`), then restart.",
+  };
+}
+
+export interface SelfUpdateResult {
+  ok: boolean;        // repo is now at the latest release (either moved to it or already there)
+  changed: boolean;   // HEAD actually moved — the caller should restart to load the new code
+  status: SelfUpdateStatus | "error";
+  target: string | null; // the release tag we aimed for
+  message: string;
+}
+
+// Spawn git in `repoDir`, capturing exit code + combined stdout/stderr, with a hard
+// timeout. Credential prompts are disabled so a fetch against a remote fails fast
+// instead of hanging. Never throws — a spawn error or timeout becomes a non-zero code.
+async function gitSpawn(
+  repoDir: string,
+  args: string[],
+  timeoutMs = 30_000,
+): Promise<{ code: number; out: string }> {
+  try {
+    const proc = Bun.spawn(["git", ...args], {
+      cwd: repoDir,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "echo" },
+    });
+    const timer = new Promise<never>((_, reject) =>
+      setTimeout(() => {
+        proc.kill();
+        reject(new Error(`git ${args[0]} timed out after ${timeoutMs}ms`));
+      }, timeoutMs),
+    );
+    const [out, err] = await Promise.race([
+      Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]),
+      timer,
+    ]);
+    const code = await proc.exited;
+    return { code, out: [out, err].filter(Boolean).join("\n").trim() };
+  } catch (err: any) {
+    return { code: 1, out: String(err?.message ?? err) };
+  }
+}
+
+// Convenience wrapper for git commands whose trimmed stdout is the value we want.
+// Returns null on any non-zero exit or empty output.
+async function gitSpawnOut(repoDir: string, args: string[]): Promise<string | null> {
+  const { code, out } = await gitSpawn(repoDir, args, 10_000);
+  return code === 0 && out ? out.trim() : null;
+}
+
+// Fast-forward the dashboard's own checkout to the latest GitHub release tag.
+// `repoDir` is supplied by the caller (index.ts owns SELF_REPO_DIR, captured at
+// module load) so it can't be redirected by config or a request body.
+export async function performSelfUpdate(repoDir: string): Promise<SelfUpdateResult> {
+  const info = await getVersionInfo(true); // force a fresh check — never act on stale version data
+  const latestTag = info.latest;
+
+  // Best-effort: fetch tags so the release commit is resolvable locally. A failure
+  // here isn't fatal on its own — the tag may already be present from a prior fetch.
+  await gitSpawn(repoDir, ["fetch", "--tags", "--force", "origin"]);
+
+  const headCommit = await gitSpawnOut(repoDir, ["rev-parse", "HEAD"]);
+  const branch = await gitSpawnOut(repoDir, ["rev-parse", "--abbrev-ref", "HEAD"]);
+  const tagCommit = latestTag
+    ? await gitSpawnOut(repoDir, ["rev-parse", "--verify", "--quiet", `${latestTag}^{commit}`])
+    : null;
+
+  const tagIsAncestorOfHead =
+    !!(tagCommit && headCommit) &&
+    (await gitSpawn(repoDir, ["merge-base", "--is-ancestor", tagCommit, headCommit])).code === 0;
+  const headIsAncestorOfTag =
+    !!(tagCommit && headCommit) &&
+    (await gitSpawn(repoDir, ["merge-base", "--is-ancestor", headCommit, tagCommit])).code === 0;
+
+  const plan = planSelfUpdate({
+    latestTag,
+    tagCommit,
+    headCommit,
+    branch,
+    tagIsAncestorOfHead,
+    headIsAncestorOfTag,
+  });
+
+  if (plan.status === "fast-forward" && tagCommit) {
+    const ff = await gitSpawn(repoDir, ["merge", "--ff-only", tagCommit]);
+    if (ff.code === 0) {
+      return { ok: true, changed: true, status: "fast-forward", target: latestTag, message: `Updated to ${latestTag}.` };
+    }
+    return {
+      ok: false,
+      changed: false,
+      status: "error",
+      target: latestTag,
+      message: `Fast-forward to ${latestTag} failed: ${ff.out || "git merge --ff-only returned a non-zero exit."}`,
+    };
+  }
+
+  return {
+    ok: plan.status === "already-current",
+    changed: false,
+    status: plan.status,
+    target: latestTag,
+    message: plan.message,
+  };
+}
