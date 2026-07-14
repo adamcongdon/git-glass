@@ -15,6 +15,7 @@ import { validateRepoPath, getAllRepoStatuses, runGit } from "./lib/gitStatus";
 import { gitPull, gitPush, pullAllSafe, deleteRepo, openVSCode, revealInFinder } from "./lib/gitOps";
 import { isAvailable as inferenceAvailable, run as inferenceRun } from "./lib/inference";
 import { getLeaderboard } from "./lib/leaderboard";
+import { getIssues, type IssueMode, type IssueStateFilter, type UpdatedPreset, type HostFilter } from "./lib/issues";
 import { evaluate as evaluateLearning, learn as learnRouting, listExamples, deleteExample, clearStore } from "./lib/repoLearning";
 
 const app = new Hono();
@@ -521,6 +522,67 @@ app.get("/api/leaderboard", async (c) => {
     return c.json(data);
   } catch (err: any) {
     return errorResponse("LEADERBOARD_ERROR", err.message, 500);
+  }
+});
+
+// GET /api/issues — read-only issue list across local remotes (GitHub + GitLab)
+const IssuesQuerySchema = z.object({
+  mode: z.enum(["mine", "all", "repo"]).default("mine"),
+  state: z.enum(["open", "closed", "all"]).default("open"),
+  page: z.coerce.number().int().min(1).default(1),
+  perPage: z.coerce.number().int().min(1).max(100).default(50),
+  repo: z.string().max(256).optional(),
+  host: z.enum(["all", "github", "gitlab"]).default("all"),
+  label: z.string().max(128).optional(),
+  author: z.string().max(128).optional(),
+  assignee: z.string().max(128).optional(),
+  updated: z.enum(["any", "24h", "7d", "30d", "90d"]).default("any"),
+  force: z
+    .enum(["0", "1", "true", "false"])
+    .optional()
+    .transform((v) => v === "1" || v === "true"),
+});
+
+app.get("/api/issues", async (c) => {
+  const raw = {
+    mode: c.req.query("mode") ?? undefined,
+    state: c.req.query("state") ?? undefined,
+    page: c.req.query("page") ?? undefined,
+    perPage: c.req.query("perPage") ?? undefined,
+    repo: c.req.query("repo") ?? undefined,
+    host: c.req.query("host") ?? undefined,
+    label: c.req.query("label") ?? undefined,
+    author: c.req.query("author") ?? undefined,
+    assignee: c.req.query("assignee") ?? undefined,
+    updated: c.req.query("updated") ?? undefined,
+    force: c.req.query("force") ?? undefined,
+  };
+  const parsed = IssuesQuerySchema.safeParse(raw);
+  if (!parsed.success) {
+    return errorResponse("VALIDATION_ERROR", parsed.error.message, 400);
+  }
+  const q = parsed.data;
+  if (q.mode === "repo" && (!q.repo || q.repo.trim() === "")) {
+    return errorResponse("VALIDATION_ERROR", "repo is required when mode=repo", 400);
+  }
+  try {
+    const config = await readConfig();
+    const data = await getIssues(config, {
+      mode: q.mode as IssueMode,
+      state: q.state as IssueStateFilter,
+      page: q.page,
+      perPage: q.perPage,
+      repo: q.repo,
+      host: q.host as HostFilter,
+      label: q.label,
+      author: q.author,
+      assignee: q.assignee,
+      updated: q.updated as UpdatedPreset,
+      force: q.force ?? false,
+    });
+    return c.json(data);
+  } catch (err: any) {
+    return errorResponse("ISSUES_ERROR", err.message ?? "Failed to load issues", 500);
   }
 });
 

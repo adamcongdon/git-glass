@@ -25,9 +25,10 @@ Runtime is Bun (uses `Bun.spawn`, `Bun.serve`, `bun-types` in tsconfig). Don't i
 
 This is a one-binary local web app. `index.ts` boots a Hono server bound to `127.0.0.1` that serves both a JSON API and a single static HTML file. There is **no build step** — `public/app.html` is hand-written HTML with two inline `<script>` blocks; the service worker handles offline caching.
 
-Three views, all in [public/app.html](public/app.html):
+Four views, all in [public/app.html](public/app.html):
 - **Feedback** — paste text/screenshot → AI triages → opens a GitHub or GitLab issue.
 - **Repos** — depth-1 scan of `scanPaths`, shows status (branch / dirty / ahead-behind / stale), supports pull/push/open-in-VSCode/reveal/ignore/delete and AI commit message + AI triage.
+- **Issues** — read-only GitHub + GitLab issue list for local clones. Modes: Mine (assigned/authored/mentioned) · All local · This repo. Filters: state, host, repo, labels, author, assignee, updated presets. Opens issues on the host; 90s memory cache + manual refresh. Backed by [lib/issues.ts](lib/issues.ts) + `GET /api/issues`.
 - **Leaderboard** — composite activity score across all scanned repos for a 7d/30d/90d/all window.
 
 Server-side responsibilities split across [lib/](lib/):
@@ -40,6 +41,7 @@ Server-side responsibilities split across [lib/](lib/):
 - [lib/triage.ts](lib/triage.ts) — calls the **GitHub Copilot Chat API** (`api.githubcopilot.com/chat/completions`, model `claude-haiku-4.5`) with the user's gh token. Image attachments use OpenAI-style `image_url` content parts. The "suggested_repo" field is constrained to the list the client sent, with a server-side guard that coerces unknown values to `null`.
 - [lib/inference.ts](lib/inference.ts) — wraps `~/.claude/PAI/Tools/Inference.ts` for AI commit messages and AI repo triage. Returns a discriminated `{ status: "ok" | "unavailable" | "timeout" | "error" }`. When PAI isn't installed, callers must return HTTP 503, not crash. The PATH is augmented with `/opt/homebrew/bin:/usr/local/bin` because launchd starts the process with a minimal PATH.
 - [lib/leaderboard.ts](lib/leaderboard.ts) — scores each repo with `commits*10 + filesChanged*1 + (additions+deletions)*0.05 + 50*exp(-daysSinceLast/halfLife)`. Cached in-memory keyed by `${windowLabel}::${repoPath}::${HEAD_sha}`; the cheap `git rev-parse HEAD` precedes the expensive `git log --numstat`. Also reads month-to-date Claude API spend from `$PAI_DIR/MEMORY/STATE/usage-cache.json` keyed by `repoPath.replace(/[/.]/g, "-")`.
+- [lib/issues.ts](lib/issues.ts) — discovers local remotes, lists issues via GitHub Search (three queries: assignee/author/mentions `@me`) or per-repo list, and GitLab project/issues + assigned/created/todos. Identity from `ownerAccounts` → `defaultAccount` → `gh` / `gitlab.tokens[host]`. Soft-fails per source; 90s in-memory cache; paginate 50.
 - [lib/remoteUrl.ts](lib/remoteUrl.ts) — `remoteToWebUrl` converts a git remote (SSH/HTTPS/ssh://) to a browser URL. **This function is duplicated** verbatim in [public/app.html](public/app.html) as `glassRemoteToWebUrl` (line ~2636) because the SPA has no build step. Keep both in sync.
 
 ## Auth model

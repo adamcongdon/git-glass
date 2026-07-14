@@ -1183,6 +1183,289 @@
     }
     .glass-leaderboard-empty[hidden] { display: none; }
 
+    /* ── Glass Issues View ───────────────────────────────────────────────── */
+
+    #view-issues {
+      padding-top: 48px;
+    }
+
+    .glass-issues-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .glass-issues-title-row {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .glass-issues-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .glass-issues-hint {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .glass-issues-refresh {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--radius);
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .glass-issues-refresh:hover { background: var(--hover-overlay); }
+    .glass-issues-refresh:focus {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .glass-issues-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .glass-issues-modes {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .glass-issues-mode,
+    .glass-issues-state-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: var(--radius);
+      padding: 4px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+    }
+    .glass-issues-mode:hover,
+    .glass-issues-state-btn:hover {
+      color: var(--text);
+      background: var(--hover-overlay);
+    }
+    .glass-issues-mode[aria-pressed="true"],
+    .glass-issues-state-btn[aria-pressed="true"] {
+      background: var(--accent-green);
+      color: var(--bg);
+      border-color: var(--accent-green);
+      font-weight: 600;
+    }
+    .glass-issues-mode:focus,
+    .glass-issues-state-btn:focus {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .glass-issues-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .glass-issues-filters label {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .glass-issues-filters select,
+    .glass-issues-filters input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--radius);
+      padding: 4px 8px;
+      font-size: 12px;
+      font-family: inherit;
+      min-width: 100px;
+    }
+    .glass-issues-filters select:focus,
+    .glass-issues-filters input:focus {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 1px;
+    }
+
+    .glass-issues-fail-banner {
+      margin: 10px 16px 0;
+      padding: 10px 12px;
+      border: 1px solid var(--warning);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+    }
+    .glass-issues-fail-banner[hidden] { display: none; }
+    .glass-issues-fail-banner summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--warning);
+    }
+    .glass-issues-fail-banner ul {
+      margin: 8px 0 0 16px;
+      color: var(--muted);
+    }
+
+    .glass-issues-list {
+      padding: 8px 16px 24px;
+    }
+
+    .glass-issues-loading,
+    .glass-issues-empty {
+      padding: 24px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .glass-issues-empty { text-align: center; padding: 32px 0; }
+    .glass-issues-loading[hidden],
+    .glass-issues-empty[hidden] { display: none; }
+
+    .glass-issue-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+      background: var(--surface);
+      transition: background 0.12s;
+    }
+    .glass-issue-row:hover { background: var(--hover-overlay); }
+
+    .glass-issue-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .glass-issue-host {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .glass-issue-host--github { color: var(--accent-blue); border-color: var(--accent-blue); }
+    .glass-issue-host--gitlab { color: var(--warning); border-color: var(--warning); }
+
+    .glass-issue-repo {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .glass-issue-num {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .glass-issue-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--link);
+      text-decoration: none;
+    }
+    .glass-issue-title:hover { text-decoration: underline; }
+    .glass-issue-title:focus {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+
+    .glass-issue-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .glass-issue-state {
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .glass-issue-state--open { color: var(--accent-green); }
+    .glass-issue-state--closed { color: var(--muted); }
+
+    .glass-issue-priority {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 1px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+    }
+    .glass-issue-priority--high { color: var(--error); border-color: var(--error); }
+    .glass-issue-priority--medium { color: var(--warning); border-color: var(--warning); }
+    .glass-issue-priority--low { color: var(--muted); }
+
+    .glass-issue-labels {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .glass-issue-label {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .glass-issues-more {
+      display: flex;
+      justify-content: center;
+      padding: 12px 0 8px;
+    }
+    .glass-issues-more[hidden] { display: none; }
+    .glass-issues-more button {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--radius);
+      padding: 8px 16px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .glass-issues-more button:hover { background: var(--hover-overlay); }
+
     /* Each leaderboard row */
     .glass-leaderboard-row {
       display: grid;
@@ -1344,6 +1627,14 @@
       aria-controls="view-repos"
       tabindex="-1"
     >Repos</button>
+    <button
+      id="glass-tab-issues"
+      class="glass-tab"
+      role="tab"
+      aria-selected="false"
+      aria-controls="view-issues"
+      tabindex="-1"
+    >Issues</button>
     <button
       id="glass-tab-leaderboard"
       class="glass-tab"
@@ -1677,6 +1968,80 @@
     </div>
 
   </div><!-- /#view-repos -->
+
+  <!-- ── Issues View ────────────────────────────────────────────────────── -->
+  <section id="view-issues" role="tabpanel" aria-labelledby="glass-tab-issues" hidden>
+    <header class="glass-issues-header">
+      <div class="glass-issues-title-row">
+        <h2 class="glass-issues-title">Issues</h2>
+        <span class="glass-issues-hint">Local clones · GitHub + GitLab · open on host</span>
+      </div>
+      <button type="button" class="glass-issues-refresh" id="glass-issues-refresh" title="Refresh (bypass cache)">Refresh</button>
+    </header>
+
+    <div class="glass-issues-toolbar">
+      <div class="glass-issues-modes" role="group" aria-label="Issue mode">
+        <button type="button" class="glass-issues-mode" data-mode="mine" aria-pressed="true">Mine</button>
+        <button type="button" class="glass-issues-mode" data-mode="all" aria-pressed="false">All local</button>
+        <button type="button" class="glass-issues-mode" data-mode="repo" aria-pressed="false">This repo</button>
+      </div>
+      <div class="glass-issues-modes" role="group" aria-label="Issue state">
+        <button type="button" class="glass-issues-state-btn" data-state="open" aria-pressed="true">Open</button>
+        <button type="button" class="glass-issues-state-btn" data-state="closed" aria-pressed="false">Closed</button>
+        <button type="button" class="glass-issues-state-btn" data-state="all" aria-pressed="false">All</button>
+      </div>
+      <div class="glass-issues-filters">
+        <label>Repo
+          <select id="glass-issues-repo" aria-label="Filter by repository">
+            <option value="">All repos</option>
+          </select>
+        </label>
+        <label>Host
+          <select id="glass-issues-host" aria-label="Filter by host">
+            <option value="all">All</option>
+            <option value="github">GitHub</option>
+            <option value="gitlab">GitLab</option>
+          </select>
+        </label>
+        <label>Updated
+          <select id="glass-issues-updated" aria-label="Updated within">
+            <option value="any">Any time</option>
+            <option value="24h">24h</option>
+            <option value="7d">7d</option>
+            <option value="30d">30d</option>
+            <option value="90d">90d</option>
+          </select>
+        </label>
+        <label>Label
+          <input type="text" id="glass-issues-label" placeholder="e.g. bug" autocomplete="off" />
+        </label>
+        <label>Author
+          <input type="text" id="glass-issues-author" placeholder="@user" autocomplete="off" />
+        </label>
+        <label>Assignee
+          <input type="text" id="glass-issues-assignee" placeholder="@user" autocomplete="off" />
+        </label>
+      </div>
+    </div>
+
+    <div class="glass-issues-fail-banner" id="glass-issues-fail-banner" hidden>
+      <details>
+        <summary id="glass-issues-fail-summary">Some repos failed to load</summary>
+        <ul id="glass-issues-fail-list"></ul>
+      </details>
+    </div>
+
+    <div class="glass-issues-list" id="glass-issues-list">
+      <div class="glass-issues-loading" id="glass-issues-loading" role="status" hidden>
+        <span class="spinner" style="width:18px;height:18px;display:inline-block;"></span> Loading issues&hellip;
+      </div>
+      <div class="glass-issues-empty" id="glass-issues-empty" hidden>No issues match these filters.</div>
+      <div id="glass-issues-rows"></div>
+      <div class="glass-issues-more" id="glass-issues-more" hidden>
+        <button type="button" id="glass-issues-load-more">Load more</button>
+      </div>
+    </div>
+  </section><!-- /#view-issues -->
 
   <!-- ── Leaderboard View ───────────────────────────────────────────────── -->
   <section id="view-leaderboard" role="tabpanel" aria-labelledby="glass-tab-leaderboard" hidden>
@@ -2871,6 +3236,24 @@
         loaded: false,
         aiAvailable: false,
       },
+      issues: {
+        mode: 'mine',
+        state: 'open',
+        host: 'all',
+        updated: 'any',
+        repo: '',
+        label: '',
+        author: '',
+        assignee: '',
+        page: 1,
+        loaded: false,
+        loading: false,
+        hasMore: false,
+        items: [],
+        remotes: [],
+        failures: [],
+        totalMatched: 0,
+      },
       leaderboard: {
         window: '30d',
         loaded: false,
@@ -2893,19 +3276,24 @@
 
       const feedbackView = document.getElementById('view-feedback');
       const reposView = document.getElementById('view-repos');
+      const issuesView = document.getElementById('view-issues');
       const leaderboardView = document.getElementById('view-leaderboard');
       const tabFeedback = document.getElementById('glass-tab-feedback');
       const tabRepos = document.getElementById('glass-tab-repos');
+      const tabIssues = document.getElementById('glass-tab-issues');
       const tabLeaderboard = document.getElementById('glass-tab-leaderboard');
 
       feedbackView.hidden = v !== 'feedback';
       reposView.hidden = v !== 'repos';
+      issuesView.hidden = v !== 'issues';
       leaderboardView.hidden = v !== 'leaderboard';
 
       tabFeedback.setAttribute('aria-selected', v === 'feedback' ? 'true' : 'false');
       tabFeedback.setAttribute('tabindex', v === 'feedback' ? '0' : '-1');
       tabRepos.setAttribute('aria-selected', v === 'repos' ? 'true' : 'false');
       tabRepos.setAttribute('tabindex', v === 'repos' ? '0' : '-1');
+      tabIssues.setAttribute('aria-selected', v === 'issues' ? 'true' : 'false');
+      tabIssues.setAttribute('tabindex', v === 'issues' ? '0' : '-1');
       tabLeaderboard.setAttribute('aria-selected', v === 'leaderboard' ? 'true' : 'false');
       tabLeaderboard.setAttribute('tabindex', v === 'leaderboard' ? '0' : '-1');
 
@@ -2916,6 +3304,10 @@
         }
       } else {
         glassStopAutoRefresh();
+      }
+
+      if (v === 'issues') {
+        if (!glassState.issues.loaded) glassLoadIssues({ force: false });
       }
 
       if (v === 'leaderboard') {
@@ -2929,11 +3321,12 @@
     // Tab click handlers
     document.getElementById('glass-tab-feedback').addEventListener('click', () => setActiveView('feedback'));
     document.getElementById('glass-tab-repos').addEventListener('click', () => setActiveView('repos'));
+    document.getElementById('glass-tab-issues').addEventListener('click', () => setActiveView('issues'));
     document.getElementById('glass-tab-leaderboard').addEventListener('click', () => setActiveView('leaderboard'));
 
     // Arrow key navigation on tab bar (roving tabindex)
     document.getElementById('glass-tabbar').addEventListener('keydown', (e) => {
-      const tabs = ['glass-tab-feedback', 'glass-tab-repos', 'glass-tab-leaderboard'];
+      const tabs = ['glass-tab-feedback', 'glass-tab-repos', 'glass-tab-issues', 'glass-tab-leaderboard'];
       const idx = tabs.indexOf(document.activeElement.id);
       if (idx === -1) return;
       if (e.key === 'ArrowRight') {
@@ -2947,11 +3340,12 @@
       }
     });
 
-    // Cmd+1 / Cmd+2 / Cmd+3 global shortcuts
+    // Cmd+1..4 global shortcuts
     document.addEventListener('keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === '1') { e.preventDefault(); setActiveView('feedback'); }
       if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); setActiveView('repos'); }
-      if ((e.metaKey || e.ctrlKey) && e.key === '3') { e.preventDefault(); setActiveView('leaderboard'); }
+      if ((e.metaKey || e.ctrlKey) && e.key === '3') { e.preventDefault(); setActiveView('issues'); }
+      if ((e.metaKey || e.ctrlKey) && e.key === '4') { e.preventDefault(); setActiveView('leaderboard'); }
     });
 
     // ── Banner ───────────────────────────────────────────────────────────────
@@ -3147,6 +3541,278 @@
         if (!win || win === glassState.leaderboard.window) return;
         glassLoadLeaderboard(win);
       });
+    });
+
+    // ── Issues view ──────────────────────────────────────────────────────────
+
+    function glassIssuesEsc(s) {
+      return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function glassIssuesRelativeTime(iso) {
+      if (!iso) return '';
+      const t = Date.parse(iso);
+      if (!t) return '';
+      const sec = Math.round((Date.now() - t) / 1000);
+      if (sec < 60) return 'just now';
+      if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
+      if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
+      if (sec < 86400 * 30) return Math.floor(sec / 86400) + 'd ago';
+      return Math.floor(sec / (86400 * 30)) + 'mo ago';
+    }
+
+    function glassIssuesSyncModeButtons() {
+      document.querySelectorAll('.glass-issues-mode').forEach((btn) => {
+        btn.setAttribute('aria-pressed', btn.dataset.mode === glassState.issues.mode ? 'true' : 'false');
+      });
+      document.querySelectorAll('.glass-issues-state-btn').forEach((btn) => {
+        btn.setAttribute('aria-pressed', btn.dataset.state === glassState.issues.state ? 'true' : 'false');
+      });
+      const repoSel = document.getElementById('glass-issues-repo');
+      if (repoSel) {
+        repoSel.disabled = false;
+        if (glassState.issues.mode === 'repo' && !glassState.issues.repo) {
+          // require pick — leave as-is
+        }
+      }
+    }
+
+    function glassIssuesFillRepoSelect(remotes) {
+      const sel = document.getElementById('glass-issues-repo');
+      if (!sel) return;
+      const prev = glassState.issues.repo;
+      const opts = ['<option value="">All repos</option>'];
+      const seen = new Set();
+      for (const r of remotes || []) {
+        const key = r.owner + '/' + r.repo;
+        if (seen.has(key.toLowerCase())) continue;
+        seen.add(key.toLowerCase());
+        const label = key + (r.hostType === 'gitlab' ? ' (' + r.host + ')' : '');
+        opts.push(
+          '<option value="' + glassIssuesEsc(key) + '"' +
+          (prev === key ? ' selected' : '') +
+          '>' + glassIssuesEsc(label) + '</option>'
+        );
+      }
+      sel.innerHTML = opts.join('');
+      if (prev) sel.value = prev;
+    }
+
+    function glassIssuesRenderFailures(failures) {
+      const banner = document.getElementById('glass-issues-fail-banner');
+      const summary = document.getElementById('glass-issues-fail-summary');
+      const list = document.getElementById('glass-issues-fail-list');
+      if (!failures || failures.length === 0) {
+        banner.hidden = true;
+        list.innerHTML = '';
+        return;
+      }
+      banner.hidden = false;
+      summary.textContent = failures.length + ' source' + (failures.length === 1 ? '' : 's') + ' failed to load';
+      list.innerHTML = failures.map((f) => {
+        const where = f.path || f.remote || f.host || 'unknown';
+        return '<li><strong>' + glassIssuesEsc(where) + '</strong>: ' + glassIssuesEsc(f.message) + '</li>';
+      }).join('');
+    }
+
+    function glassIssuesRenderRows(items, append) {
+      const container = document.getElementById('glass-issues-rows');
+      if (!append) container.innerHTML = '';
+      for (const issue of items) {
+        const row = document.createElement('article');
+        row.className = 'glass-issue-row';
+        row.setAttribute('data-id', issue.id);
+
+        const labels = (issue.labels || []).slice(0, 8).map((l) =>
+          '<span class="glass-issue-label">' + glassIssuesEsc(l) + '</span>'
+        ).join('');
+        const moreLabels = (issue.labels || []).length > 8
+          ? '<span class="glass-issue-label">+' + ((issue.labels.length) - 8) + '</span>'
+          : '';
+        const assignees = (issue.assignees || []).length
+          ? '→ ' + issue.assignees.map((a) => '@' + a).join(', ')
+          : '';
+        const author = issue.author ? '@' + issue.author : '';
+        const priority = issue.priority
+          ? '<span class="glass-issue-priority glass-issue-priority--' + issue.priority + '">' +
+            glassIssuesEsc(issue.priority) + '</span>'
+          : '';
+        const milestone = issue.milestone
+          ? '<span title="Milestone">🏁 ' + glassIssuesEsc(issue.milestone) + '</span>'
+          : '';
+
+        row.innerHTML =
+          '<div class="glass-issue-top">' +
+            '<span class="glass-issue-host glass-issue-host--' + glassIssuesEsc(issue.hostType) + '">' +
+              glassIssuesEsc(issue.hostType) + '</span>' +
+            '<span class="glass-issue-repo">' + glassIssuesEsc(issue.owner + '/' + issue.repo) + '</span>' +
+            '<span class="glass-issue-num">#' + glassIssuesEsc(String(issue.number)) + '</span>' +
+            priority +
+          '</div>' +
+          '<a class="glass-issue-title" href="' + glassIssuesEsc(issue.htmlUrl) +
+            '" target="_blank" rel="noopener noreferrer">' + glassIssuesEsc(issue.title) + '</a>' +
+          '<div class="glass-issue-meta">' +
+            '<span class="glass-issue-state glass-issue-state--' + glassIssuesEsc(issue.state) + '">' +
+              glassIssuesEsc(issue.state) + '</span>' +
+            '<span>' + glassIssuesEsc(author) + (assignees ? ' ' + glassIssuesEsc(assignees) : '') + '</span>' +
+            '<span title="Updated">↻ ' + glassIssuesEsc(glassIssuesRelativeTime(issue.updatedAt)) + '</span>' +
+            '<span title="Created">+ ' + glassIssuesEsc(glassIssuesRelativeTime(issue.createdAt)) + '</span>' +
+            '<span title="Comments">💬 ' + glassIssuesEsc(String(issue.comments || 0)) + '</span>' +
+            milestone +
+          '</div>' +
+          (labels || moreLabels ? '<div class="glass-issue-labels">' + labels + moreLabels + '</div>' : '');
+
+        container.appendChild(row);
+      }
+    }
+
+    function glassIssuesUpdateEmpty() {
+      const empty = document.getElementById('glass-issues-empty');
+      const more = document.getElementById('glass-issues-more');
+      const n = glassState.issues.items.length;
+      empty.hidden = n > 0 || glassState.issues.loading;
+      if (n === 0 && !glassState.issues.loading) {
+        if (glassState.issues.mode === 'repo' && !glassState.issues.repo) {
+          empty.textContent = 'Pick a repository for This repo mode.';
+        } else {
+          empty.textContent = 'No issues match these filters.';
+        }
+      }
+      more.hidden = !glassState.issues.hasMore;
+    }
+
+    async function glassLoadIssues(opts) {
+      opts = opts || {};
+      if (glassState.issues.loading) return;
+
+      const st = glassState.issues;
+      if (st.mode === 'repo' && !st.repo) {
+        glassIssuesSyncModeButtons();
+        document.getElementById('glass-issues-loading').hidden = true;
+        document.getElementById('glass-issues-rows').innerHTML = '';
+        st.items = [];
+        st.hasMore = false;
+        glassIssuesUpdateEmpty();
+        return;
+      }
+
+      const append = !!opts.append;
+      if (!append) st.page = 1;
+
+      glassState.issues.loading = true;
+      glassIssuesSyncModeButtons();
+      const loading = document.getElementById('glass-issues-loading');
+      if (!append) {
+        loading.hidden = false;
+        document.getElementById('glass-issues-empty').hidden = true;
+        if (!opts.silent) document.getElementById('glass-issues-rows').innerHTML = '';
+      }
+
+      const params = new URLSearchParams();
+      params.set('mode', st.mode);
+      params.set('state', st.state);
+      params.set('page', String(st.page));
+      params.set('perPage', '50');
+      params.set('host', st.host || 'all');
+      params.set('updated', st.updated || 'any');
+      if (st.repo) params.set('repo', st.repo);
+      if (st.label) params.set('label', st.label);
+      if (st.author) params.set('author', st.author.replace(/^@/, ''));
+      if (st.assignee) params.set('assignee', st.assignee.replace(/^@/, ''));
+      if (opts.force) params.set('force', '1');
+
+      try {
+        const data = await glassApi('/api/issues?' + params.toString());
+        st.loaded = true;
+        st.hasMore = !!data.hasMore;
+        st.totalMatched = data.totalMatched || 0;
+        st.failures = data.failures || [];
+        st.remotes = data.remotes || [];
+        glassIssuesFillRepoSelect(st.remotes);
+        glassIssuesRenderFailures(st.failures);
+
+        const batch = data.issues || [];
+        if (append) {
+          st.items = st.items.concat(batch);
+          glassIssuesRenderRows(batch, true);
+        } else {
+          st.items = batch;
+          glassIssuesRenderRows(batch, false);
+        }
+      } catch (e) {
+        if (!opts.silent) {
+          showGlassBanner('Issues failed: ' + e.message, 'error');
+        }
+      } finally {
+        glassState.issues.loading = false;
+        loading.hidden = true;
+        glassIssuesUpdateEmpty();
+      }
+    }
+
+    document.querySelectorAll('.glass-issues-mode').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode;
+        if (!mode || mode === glassState.issues.mode) return;
+        glassState.issues.mode = mode;
+        if (mode !== 'repo') {
+          // keep repo as optional filter for mine/all
+        }
+        glassLoadIssues({ force: false });
+      });
+    });
+
+    document.querySelectorAll('.glass-issues-state-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const state = btn.dataset.state;
+        if (!state || state === glassState.issues.state) return;
+        glassState.issues.state = state;
+        glassLoadIssues({ force: false });
+      });
+    });
+
+    document.getElementById('glass-issues-refresh').addEventListener('click', () => {
+      glassLoadIssues({ force: true });
+    });
+
+    document.getElementById('glass-issues-load-more').addEventListener('click', () => {
+      glassState.issues.page += 1;
+      glassLoadIssues({ append: true });
+    });
+
+    document.getElementById('glass-issues-repo').addEventListener('change', (e) => {
+      glassState.issues.repo = e.target.value || '';
+      glassLoadIssues({ force: false });
+    });
+    document.getElementById('glass-issues-host').addEventListener('change', (e) => {
+      glassState.issues.host = e.target.value || 'all';
+      glassLoadIssues({ force: false });
+    });
+    document.getElementById('glass-issues-updated').addEventListener('change', (e) => {
+      glassState.issues.updated = e.target.value || 'any';
+      glassLoadIssues({ force: false });
+    });
+
+    let glassIssuesFilterTimer = null;
+    function glassIssuesDebouncedReload() {
+      clearTimeout(glassIssuesFilterTimer);
+      glassIssuesFilterTimer = setTimeout(() => glassLoadIssues({ force: false }), 300);
+    }
+    document.getElementById('glass-issues-label').addEventListener('input', (e) => {
+      glassState.issues.label = e.target.value.trim();
+      glassIssuesDebouncedReload();
+    });
+    document.getElementById('glass-issues-author').addEventListener('input', (e) => {
+      glassState.issues.author = e.target.value.trim();
+      glassIssuesDebouncedReload();
+    });
+    document.getElementById('glass-issues-assignee').addEventListener('input', (e) => {
+      glassState.issues.assignee = e.target.value.trim();
+      glassIssuesDebouncedReload();
     });
 
     document.querySelectorAll('.glass-leaderboard-h--sortable').forEach(h => {
@@ -3986,7 +4652,7 @@
       const urlParams = new URLSearchParams(window.location.search);
       const urlView = urlParams.get('v');
       const stored = localStorage.getItem('glass.activeView');
-      const validViews = ['feedback', 'repos', 'leaderboard'];
+      const validViews = ['feedback', 'repos', 'issues', 'leaderboard'];
       const initialView = validViews.includes(urlView) ? urlView
         : validViews.includes(stored) ? stored
         : 'feedback';
