@@ -16,6 +16,19 @@ import { gitPull, gitPush, pullAllSafe, deleteRepo, openVSCode, revealInFinder }
 import { isAvailable as inferenceAvailable, run as inferenceRun } from "./lib/inference";
 import { getLeaderboard } from "./lib/leaderboard";
 import { getIssues, type IssueMode, type IssueStateFilter, type UpdatedPreset, type HostFilter } from "./lib/issues";
+import {
+  getNotifications,
+  markNotificationDone,
+  markNotificationRead,
+  muteNotification,
+} from "./lib/notifications";
+import { getWork } from "./lib/work";
+import {
+  getMergeable,
+  getMergeableStatus,
+  mergePullRequest,
+  type MergeMethod,
+} from "./lib/mergeable";
 import { evaluate as evaluateLearning, learn as learnRouting, listExamples, deleteExample, clearStore } from "./lib/repoLearning";
 
 const app = new Hono();
@@ -586,6 +599,226 @@ app.get("/api/issues", async (c) => {
   }
 });
 
+// ─── Inbox: Notifications / Work / Mergeable ─────────────────────────────────
+
+const boolQuery = z
+  .enum(["0", "1", "true", "false"])
+  .optional()
+  .transform((v) => v === "1" || v === "true");
+
+const NotificationsQuerySchema = z.object({
+  localOnly: boolQuery,
+  includeCi: boolQuery,
+  includeBots: boolQuery,
+  includeWatching: boolQuery,
+  account: z.string().max(128).optional(),
+  force: boolQuery,
+});
+
+app.get("/api/notifications", async (c) => {
+  const raw = {
+    localOnly: c.req.query("localOnly") ?? undefined,
+    includeCi: c.req.query("includeCi") ?? undefined,
+    includeBots: c.req.query("includeBots") ?? undefined,
+    includeWatching: c.req.query("includeWatching") ?? undefined,
+    account: c.req.query("account") ?? undefined,
+    force: c.req.query("force") ?? undefined,
+  };
+  const parsed = NotificationsQuerySchema.safeParse(raw);
+  if (!parsed.success) {
+    return errorResponse("VALIDATION_ERROR", parsed.error.message, 400);
+  }
+  const q = parsed.data;
+  try {
+    const config = await readConfig();
+    const data = await getNotifications(config, {
+      // Default localOnly=true when omitted
+      localOnly: q.localOnly ?? true,
+      includeCi: q.includeCi ?? false,
+      includeBots: q.includeBots ?? false,
+      includeWatching: q.includeWatching ?? false,
+      account: q.account,
+      force: q.force ?? false,
+    });
+    return c.json(data);
+  } catch (err: any) {
+    return errorResponse("NOTIFICATIONS_ERROR", err.message ?? "Failed to load notifications", 500);
+  }
+});
+
+const NotifTriageSchema = z.object({
+  threadId: z.string().min(1).max(256),
+  hostType: z.enum(["github", "gitlab"]),
+  host: z.string().min(1).max(256),
+  account: z.string().max(128).optional(),
+  unread: z.boolean().optional(),
+});
+
+app.post("/api/notifications/done", async (c) => {
+  const csrf = sameOriginGuard(c);
+  if (csrf) return csrf;
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return errorResponse("INVALID_JSON", "Request body must be valid JSON", 400);
+  }
+  const parsed = NotifTriageSchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse("VALIDATION_ERROR", parsed.error.message, 400);
+  }
+  try {
+    const config = await readConfig();
+    const result = await markNotificationDone(config, parsed.data);
+    return c.json(result, result.ok ? 200 : 400);
+  } catch (err: any) {
+    return errorResponse("TRIAGE_ERROR", err.message ?? "Mark done failed", 500);
+  }
+});
+
+app.post("/api/notifications/read", async (c) => {
+  const csrf = sameOriginGuard(c);
+  if (csrf) return csrf;
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return errorResponse("INVALID_JSON", "Request body must be valid JSON", 400);
+  }
+  const parsed = NotifTriageSchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse("VALIDATION_ERROR", parsed.error.message, 400);
+  }
+  try {
+    const config = await readConfig();
+    const result = await markNotificationRead(config, parsed.data);
+    return c.json(result, result.ok ? 200 : 400);
+  } catch (err: any) {
+    return errorResponse("TRIAGE_ERROR", err.message ?? "Mark read failed", 500);
+  }
+});
+
+app.post("/api/notifications/mute", async (c) => {
+  const csrf = sameOriginGuard(c);
+  if (csrf) return csrf;
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return errorResponse("INVALID_JSON", "Request body must be valid JSON", 400);
+  }
+  const parsed = NotifTriageSchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse("VALIDATION_ERROR", parsed.error.message, 400);
+  }
+  try {
+    const config = await readConfig();
+    const result = await muteNotification(config, parsed.data);
+    return c.json(result, result.ok ? 200 : 400);
+  } catch (err: any) {
+    return errorResponse("TRIAGE_ERROR", err.message ?? "Mute failed", 500);
+  }
+});
+
+app.get("/api/work", async (c) => {
+  const state = c.req.query("state") ?? "open";
+  const forceParam = c.req.query("force");
+  const force = forceParam === "1" || forceParam === "true";
+  if (!["open", "closed", "all"].includes(state)) {
+    return errorResponse("VALIDATION_ERROR", "state must be open|closed|all", 400);
+  }
+  try {
+    const config = await readConfig();
+    const data = await getWork(config, {
+      state: state as IssueStateFilter,
+      force,
+    });
+    return c.json(data);
+  } catch (err: any) {
+    return errorResponse("WORK_ERROR", err.message ?? "Failed to load work", 500);
+  }
+});
+
+app.get("/api/mergeable", async (c) => {
+  const forceParam = c.req.query("force");
+  const force = forceParam === "1" || forceParam === "true";
+  try {
+    const config = await readConfig();
+    const data = await getMergeable(config, { force });
+    return c.json(data);
+  } catch (err: any) {
+    return errorResponse("MERGEABLE_ERROR", err.message ?? "Failed to load mergeable PRs", 500);
+  }
+});
+
+app.get("/api/mergeable/status", async (c) => {
+  const hostType = c.req.query("hostType") as "github" | "gitlab" | undefined;
+  const host = c.req.query("host") ?? "";
+  const owner = c.req.query("owner") ?? "";
+  const repo = c.req.query("repo") ?? "";
+  const number = Number(c.req.query("number") ?? "");
+  const account = c.req.query("account") ?? undefined;
+  if (!hostType || !["github", "gitlab"].includes(hostType) || !owner || !repo || !Number.isFinite(number)) {
+    return errorResponse(
+      "VALIDATION_ERROR",
+      "hostType, host, owner, repo, number are required",
+      400,
+    );
+  }
+  try {
+    const config = await readConfig();
+    const row = await getMergeableStatus(config, {
+      hostType,
+      host: host || (hostType === "github" ? "github.com" : host),
+      owner,
+      repo,
+      number,
+      account,
+    });
+    if (!row) return errorResponse("NOT_FOUND", "PR/MR not found or inaccessible", 404);
+    return c.json(row);
+  } catch (err: any) {
+    return errorResponse("MERGEABLE_STATUS_ERROR", err.message ?? "Status check failed", 500);
+  }
+});
+
+const MergeBodySchema = z.object({
+  hostType: z.enum(["github", "gitlab"]),
+  host: z.string().min(1).max(256),
+  owner: z.string().min(1).max(256),
+  repo: z.string().min(1).max(256),
+  number: z.number().int().positive(),
+  account: z.string().max(128).optional(),
+  method: z.enum(["merge", "squash", "rebase"]),
+  commitTitle: z.string().max(500).optional(),
+  commitMessage: z.string().max(8000).optional(),
+});
+
+app.post("/api/mergeable/merge", async (c) => {
+  const csrf = sameOriginGuard(c);
+  if (csrf) return csrf;
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return errorResponse("INVALID_JSON", "Request body must be valid JSON", 400);
+  }
+  const parsed = MergeBodySchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse("VALIDATION_ERROR", parsed.error.message, 400);
+  }
+  try {
+    const config = await readConfig();
+    const result = await mergePullRequest(config, {
+      ...parsed.data,
+      method: parsed.data.method as MergeMethod,
+    });
+    return c.json(result, result.ok ? 200 : 400);
+  } catch (err: any) {
+    return errorResponse("MERGE_ERROR", err.message ?? "Merge failed", 500);
+  }
+});
+
 // GET /api/git/ignored — list ignored repo paths
 app.get("/api/git/ignored", async (c) => {
   const config = await readConfig();
@@ -956,6 +1189,8 @@ try {
     fetch: app.fetch,
     port: PORT,
     hostname: "127.0.0.1",
+    // Mergeable / multi-account notification scans can exceed Bun's default 10s idle cap
+    idleTimeout: 120,
     error(_error: Error) {
       return new Response("Internal Server Error", { status: 500 });
     },

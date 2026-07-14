@@ -28,7 +28,7 @@ This is a one-binary local web app. `index.ts` boots a Hono server bound to `127
 Four views, all in [public/app.html](public/app.html):
 - **Feedback** — paste text/screenshot → AI triages → opens a GitHub or GitLab issue.
 - **Repos** — depth-1 scan of `scanPaths`, shows status (branch / dirty / ahead-behind / stale), supports pull/push/open-in-VSCode/reveal/ignore/delete and AI commit message + AI triage.
-- **Issues** — read-only GitHub + GitLab issue list for local clones. Modes: Mine (assigned/authored/mentioned) · All local · This repo. Filters: state, host, repo, labels, author, assignee, updated presets. Opens issues on the host; 90s memory cache + manual refresh. Backed by [lib/issues.ts](lib/issues.ts) + `GET /api/issues`.
+- **Inbox** — GitHub/GitLab attention surface (renamed from Issues). Modes: **Notifications** (GH notifs + GL todos; soft triage done/read/mute; bulk + keyboard) · **Work** (issues+PRs, reviews-first, local remotes, open on host) · **Mergeable** (ready PRs/MRs: checks+approved+not behind; confirm merge with live re-fetch) · **All local** · **This repo**. Backed by [lib/notifications.ts](lib/notifications.ts), [lib/work.ts](lib/work.ts), [lib/mergeable.ts](lib/mergeable.ts), [lib/issues.ts](lib/issues.ts).
 - **Leaderboard** — composite activity score across all scanned repos for a 7d/30d/90d/all window.
 
 Server-side responsibilities split across [lib/](lib/):
