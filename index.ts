@@ -1242,6 +1242,9 @@ app.post("/api/update", async (c) => {
 
   try {
     const result = await performSelfUpdate(SELF_REPO_DIR);
+    console.log(
+      `[update] performSelfUpdate: status=${result.status} changed=${result.changed} ok=${result.ok} target=${result.target ?? "?"} — ${result.message}`,
+    );
     return c.json({
       ok: result.ok,
       changed: result.changed,
@@ -1250,6 +1253,7 @@ app.post("/api/update", async (c) => {
       alreadyUpToDate: result.status === "already-current",
     });
   } catch (err: any) {
+    console.error("[update] performSelfUpdate threw:", err?.message ?? err);
     return c.json(
       { ok: false, changed: false, status: "error", output: String(err?.message ?? err), alreadyUpToDate: false },
       200,
@@ -1262,7 +1266,11 @@ app.post("/api/restart", async (c) => {
   const csrf = sameOriginGuard(c);
   if (csrf) return csrf;
 
-  setTimeout(() => process.exit(0), 300);
+  console.log("[restart] /api/restart requested — exiting in 300ms for launchd KeepAlive relaunch");
+  setTimeout(() => {
+    console.log("[restart] process.exit(0) now");
+    process.exit(0);
+  }, 300);
   return c.json({ ok: true, message: "Server restarting..." });
 });
 

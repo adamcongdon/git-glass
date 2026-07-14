@@ -5266,10 +5266,13 @@
     }
 
     async function glassRestartServerAndWait() {
+      console.log('[glass-update] POST /api/restart — asking server to exit for launchd relaunch');
       try {
-        await glassApi('/api/restart', {});
-      } catch {
+        const r = await glassApi('/api/restart', {});
+        console.log('[glass-update] /api/restart acknowledged:', r);
+      } catch (err) {
         // /api/restart may error as the server shuts down — proceed to reconnect
+        console.log('[glass-update] /api/restart errored (expected as server exits):', err && err.message ? err.message : err);
       }
       glassWaitForServerBack();
     }
@@ -5278,6 +5281,7 @@
       showGlassBanner('Checking for updates…', 'info');
       try {
         const v = await glassApi('/api/version?force=true');
+        console.log('[glass-update] /api/version?force=true →', v);
         glassSetUpdateDot(!!v.updateAvailable || !!v.restartNeeded);
         glassApplyConfigVersion(v);
         if (v.updateAvailable) {
@@ -5316,8 +5320,11 @@
       errEl.hidden = true;
       errEl.textContent = '';
       try {
+        console.log('[glass-update] POST /api/update …');
         const data = await glassApi('/api/update', {});
+        console.log('[glass-update] /api/update response:', data);
         if (!data || !data.ok) {
+          console.warn('[glass-update] update reported not-ok — aborting restart:', data);
           errEl.textContent = 'Update failed: ' + ((data && data.output) ? data.output : 'unknown error');
           errEl.hidden = false;
           resetButtons();
@@ -5326,25 +5333,31 @@
         // Restart when HEAD moved, OR when the process is still stale vs disk
         // (already-current after an out-of-band pull / prior update that didn't restart).
         let needsRestart = !!data.changed;
+        console.log('[glass-update] data.changed =', data.changed, '→ needsRestart(initial) =', needsRestart);
         if (!needsRestart) {
           try {
             const fresh = await glassApi('/api/version?force=true');
             glassApplyConfigVersion(fresh);
             needsRestart = !!fresh.restartNeeded;
-          } catch {
+            console.log('[glass-update] not changed; re-checked /api/version — restartNeeded =', fresh.restartNeeded, '(current', fresh.current + ', commit', fresh.currentCommit + ')');
+          } catch (e) {
             needsRestart = !!(glassLatestVersionInfo && glassLatestVersionInfo.restartNeeded);
+            console.warn('[glass-update] version re-check failed; falling back to cached restartNeeded =', needsRestart, e);
           }
         }
         if (!needsRestart) {
+          console.log('[glass-update] no restart needed — disk and process are both current. Done.');
           glassCloseUpdateModal();
           showGlassBanner(data.output || 'Already on the latest version.', 'info', 4000);
           resetButtons();
           return;
         }
+        console.log('[glass-update] restart needed — closing modal and restarting server');
         glassCloseUpdateModal();
         confirmBtn.textContent = 'Restarting…';
         await glassRestartServerAndWait();
       } catch (err) {
+        console.error('[glass-update] glassPerformUpdate threw:', err);
         errEl.textContent = 'Update failed: ' + (err && err.message ? err.message : err);
         errEl.hidden = false;
         resetButtons();
@@ -5358,23 +5371,28 @@
       const startMs = Date.now();
       showGlassBanner('Restarting… reconnecting', 'info', 0);
       let attempts = 0;
+      console.log('[glass-update] waiting for server to come back (polling /api/health every ' + POLL_MS + 'ms)…');
       const interval = setInterval(async () => {
         attempts++;
         const elapsed = Math.round((Date.now() - startMs) / 1000);
         if (bannerEl) bannerEl.textContent = 'Restarting… reconnecting (' + elapsed + 's)';
         try {
           const r = await fetch('/api/health', { cache: 'no-store' });
+          console.log('[glass-update] reconnect poll #' + attempts + ' → /api/health status ' + r.status);
           if (r.ok) {
             clearInterval(interval);
+            console.log('[glass-update] server back after ' + elapsed + 's — reloading page');
             showGlassBanner('Back online — reloading.', 'success', 1500);
             setTimeout(() => location.reload(), 1000);
             return;
           }
-        } catch {
+        } catch (e) {
           // server not up yet
+          console.log('[glass-update] reconnect poll #' + attempts + ' — server not up yet (' + (e && e.message ? e.message : e) + ')');
         }
         if (attempts >= MAX_ATTEMPTS) {
           clearInterval(interval);
+          console.error('[glass-update] server did not come back after ' + attempts + ' attempts (' + elapsed + 's)');
           showGlassBanner(
             'Server did not come back. If restart never recovers, re-run ./install.sh so the LaunchAgent (KeepAlive) is loaded, then open http://127.0.0.1:7777',
             'error',
