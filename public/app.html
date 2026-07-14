@@ -5217,13 +5217,8 @@
         if (action === 'check-updates') {
           await glassCheckForUpdates();
         } else if (action === 'restart') {
-          if (!confirm('Restart the server? This only works if installed via install.sh (LaunchAgent).')) return;
-          try {
-            await glassApi('/api/restart', {});
-            showGlassBanner('Server restarting... will reconnect shortly.', 'info', 10000);
-          } catch (err) {
-            showGlassBanner('Restart failed: ' + err.message, 'error');
-          }
+          if (!confirm('Restart the server? This only works if installed via install.sh (LaunchAgent KeepAlive).')) return;
+          await glassRestartServerAndWait();
         }
       });
     })();
@@ -5270,18 +5265,37 @@
       glassCloseModal('glass-update-modal');
     }
 
+    async function glassRestartServerAndWait() {
+      try {
+        await glassApi('/api/restart', {});
+      } catch {
+        // /api/restart may error as the server shuts down — proceed to reconnect
+      }
+      glassWaitForServerBack();
+    }
+
     async function glassCheckForUpdates() {
       showGlassBanner('Checking for updates…', 'info');
       try {
         const v = await glassApi('/api/version?force=true');
         glassSetUpdateDot(!!v.updateAvailable || !!v.restartNeeded);
         glassApplyConfigVersion(v);
-        if (!v.updateAvailable) {
-          showGlassBanner('You\'re on ' + (v.current || 'unknown') + ' — already the latest.', 'success', 5000);
+        if (v.updateAvailable) {
+          showGlassBanner('', 'info', 1);
+          glassShowUpdateModal(v);
           return;
         }
-        showGlassBanner('', 'info', 1);
-        glassShowUpdateModal(v);
+        // Disk already matches latest release, but the running process may still be
+        // on an older commit (out-of-band pull, half-finished update, etc.).
+        if (v.restartNeeded) {
+          showGlassBanner(
+            'Code is on ' + (v.current || 'disk') + ' — restart the server to apply it.',
+            'info',
+            6000,
+          );
+          return;
+        }
+        showGlassBanner('You\'re on ' + (v.current || 'unknown') + ' — already the latest.', 'success', 5000);
       } catch (err) {
         showGlassBanner('Update check failed: ' + (err && err.message ? err.message : err), 'error', 8000);
       }
@@ -5309,21 +5323,27 @@
           resetButtons();
           return;
         }
-        // Only restart when HEAD actually moved. An "already-current" result (ok but
-        // unchanged) means there's nothing to load — restarting would be pointless.
-        if (!data.changed) {
+        // Restart when HEAD moved, OR when the process is still stale vs disk
+        // (already-current after an out-of-band pull / prior update that didn't restart).
+        let needsRestart = !!data.changed;
+        if (!needsRestart) {
+          try {
+            const fresh = await glassApi('/api/version?force=true');
+            glassApplyConfigVersion(fresh);
+            needsRestart = !!fresh.restartNeeded;
+          } catch {
+            needsRestart = !!(glassLatestVersionInfo && glassLatestVersionInfo.restartNeeded);
+          }
+        }
+        if (!needsRestart) {
           glassCloseUpdateModal();
           showGlassBanner(data.output || 'Already on the latest version.', 'info', 4000);
           resetButtons();
           return;
         }
         glassCloseUpdateModal();
-        try {
-          await glassApi('/api/restart', {});
-        } catch {
-          // /api/restart may error as the server shuts down — proceed to reconnect
-        }
-        glassWaitForServerBack();
+        confirmBtn.textContent = 'Restarting…';
+        await glassRestartServerAndWait();
       } catch (err) {
         errEl.textContent = 'Update failed: ' + (err && err.message ? err.message : err);
         errEl.hidden = false;
@@ -5343,7 +5363,7 @@
         const elapsed = Math.round((Date.now() - startMs) / 1000);
         if (bannerEl) bannerEl.textContent = 'Restarting… reconnecting (' + elapsed + 's)';
         try {
-          const r = await fetch('/api/health');
+          const r = await fetch('/api/health', { cache: 'no-store' });
           if (r.ok) {
             clearInterval(interval);
             showGlassBanner('Back online — reloading.', 'success', 1500);
@@ -5355,7 +5375,11 @@
         }
         if (attempts >= MAX_ATTEMPTS) {
           clearInterval(interval);
-          showGlassBanner('Reconnect timed out. Reload the page manually when the server is back.', 'error', 0);
+          showGlassBanner(
+            'Server did not come back. If restart never recovers, re-run ./install.sh so the LaunchAgent (KeepAlive) is loaded, then open http://127.0.0.1:7777',
+            'error',
+            0,
+          );
         }
       }, POLL_MS);
     }
@@ -5412,12 +5436,7 @@
         const originalText = btn.textContent;
         btn.textContent = 'Restarting…';
         try {
-          try {
-            await glassApi('/api/restart', {});
-          } catch {
-            // /api/restart may error as the server shuts down — proceed to reconnect
-          }
-          glassWaitForServerBack();
+          await glassRestartServerAndWait();
         } catch (err) {
           btn.disabled = false;
           btn.textContent = originalText;
