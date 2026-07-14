@@ -132,12 +132,14 @@ export function mapGhMergeability(input: {
   const state = (input.mergeable_state ?? "").toLowerCase();
   const mergeable =
     input.mergeable === true && !input.draft && state !== "dirty" && state !== "blocked";
-  const notBehind = state !== "behind" && (input.behindBy ?? 0) === 0 && state !== "unknown";
-  // If mergeable_state is clean, treat as not behind
-  const notBehindFinal =
-    state === "clean" || state === "has_hooks" || state === "unstable"
-      ? state !== "behind"
-      : notBehind && state !== "behind";
+
+  // clean / has_hooks → up to date; behind / unknown with behindBy → not
+  let notBehind = true;
+  if (state === "behind") notBehind = false;
+  else if (state === "clean" || state === "has_hooks") notBehind = true;
+  else if (state === "unknown" || (input.behindBy ?? 0) > 0) notBehind = (input.behindBy ?? 0) === 0;
+  else if (state === "dirty" || state === "blocked") notBehind = false;
+
   const checksClean =
     input.checksConclusion === "success" ||
     input.checksConclusion === "neutral" ||
@@ -148,7 +150,9 @@ export function mapGhMergeability(input: {
   const checksFinal =
     state === "unstable"
       ? input.checksConclusion === "success" || input.checksConclusion === "neutral"
-      : checksClean;
+      : state === "clean"
+        ? true
+        : checksClean;
   const decision = (input.reviewDecision ?? "").toUpperCase();
   const approved =
     decision === "APPROVED" ||
@@ -161,9 +165,9 @@ export function mapGhMergeability(input: {
       : approved;
 
   return {
-    checksClean: input.draft ? false : state === "clean" ? true : checksFinal,
+    checksClean: input.draft ? false : checksFinal,
     approved: approvedFinal,
-    notBehind: state === "behind" ? false : state === "clean" ? true : notBehindFinal,
+    notBehind,
     // Draft is never mergeable even if mergeable_state reports clean
     mergeable: input.draft ? false : mergeable || state === "clean",
   };

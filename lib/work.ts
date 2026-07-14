@@ -124,15 +124,18 @@ function attentionRank(a: WorkAttention): number {
   return i === -1 ? 99 : i;
 }
 
-export function sortWorkSections(
-  rows: WorkRow[],
-  opts?: { asSections: true },
-): WorkRow[] | Array<{ attention: WorkAttention; label: string; items: WorkRow[] }>;
+export type WorkSection = {
+  attention: WorkAttention;
+  label: string;
+  items: WorkRow[];
+};
+
 export function sortWorkSections(rows: WorkRow[]): WorkRow[];
+export function sortWorkSections(rows: WorkRow[], opts: { asSections: true }): WorkSection[];
 export function sortWorkSections(
   rows: WorkRow[],
   opts?: { asSections?: boolean },
-): WorkRow[] | Array<{ attention: WorkAttention; label: string; items: WorkRow[] }> {
+): WorkRow[] | WorkSection[] {
   const sorted = [...rows].sort((a, b) => {
     const ra = attentionRank(a.attention);
     const rb = attentionRank(b.attention);
@@ -147,7 +150,7 @@ export function sortWorkSections(
     list.push(r);
     map.set(r.attention, list);
   }
-  const sections: Array<{ attention: WorkAttention; label: string; items: WorkRow[] }> = [];
+  const sections: WorkSection[] = [];
   for (const attention of SECTION_ORDER) {
     const items = map.get(attention);
     if (!items?.length) continue;
@@ -520,12 +523,8 @@ export async function getWork(config: Config, query: WorkQuery = {}): Promise<Wo
     cache = bag;
   }
 
-  const sorted = sortWorkSections(bag!.items) as WorkRow[];
-  const sections = sortWorkSections(bag!.items, { asSections: true }) as Array<{
-    attention: WorkAttention;
-    label: string;
-    items: WorkRow[];
-  }>;
+  const sorted = sortWorkSections(bag!.items);
+  const sections = sortWorkSections(bag!.items, { asSections: true });
 
   return {
     items: sorted,
