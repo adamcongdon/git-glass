@@ -53,6 +53,16 @@ async function runGit(args: string[]): Promise<string | null> {
   }
 }
 
+// True when the running process was booted on a different commit than disk HEAD.
+// Both must be non-null strings that differ — null/empty either side means "unknown",
+// not "restart needed" (we never nag on missing git metadata).
+export function isRestartNeeded(
+  bootCommit: string | null,
+  diskCommit: string | null,
+): boolean {
+  return !!bootCommit && !!diskCommit && bootCommit !== diskCommit;
+}
+
 // Compare two semver-ish strings like "v0.1.0". Returns true if `latest` > `current`.
 // Only the base "vMAJOR.MINOR.PATCH" prefix is parsed — anything after (e.g. "-3-gabcdef")
 // is ignored, which is the correct behavior for a local commit that's ahead of a release tag
@@ -271,6 +281,12 @@ async function gitSpawn(
 async function gitSpawnOut(repoDir: string, args: string[]): Promise<string | null> {
   const { code, out } = await gitSpawn(repoDir, args, 10_000);
   return code === 0 && out ? out.trim() : null;
+}
+
+// Full SHA of HEAD in `repoDir`, or null if git fails. Used by index.ts to capture
+// BOOT_COMMIT at process start and re-read disk HEAD on each /api/version poll.
+export async function getHeadCommit(repoDir: string): Promise<string | null> {
+  return gitSpawnOut(repoDir, ["rev-parse", "HEAD"]);
 }
 
 // Fast-forward the dashboard's own checkout to the latest GitHub release tag.

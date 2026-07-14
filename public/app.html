@@ -1962,6 +1962,7 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
             <button id="config-check-updates-btn" class="btn" style="width:fit-content;">Check for Updates</button>
             <button id="config-update-now-btn" class="btn btn-green" style="width:fit-content;display:none;">Update &amp; Restart</button>
+            <button id="config-restart-apply-btn" class="btn btn-green" style="width:fit-content;display:none;">Restart to apply update</button>
           </div>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
             <input type="checkbox" id="config-auto-update" />
@@ -2969,19 +2970,25 @@
     }
 
     // Reflect a /api/version payload into the Config → Updates section: version line,
-    // status text, and the inline "Update & Restart" button (shown only when an update
-    // is available). Stashes the payload so the button can open the existing modal
-    // without re-fetching. Shared by openConfig() and glassCheckForUpdates().
+    // status text, and the inline update/restart buttons. "Update & Restart" shows when
+    // a newer release is available; "Restart to apply update" shows when disk HEAD has
+    // moved since process boot (independent of updateAvailable). Stashes the payload so
+    // the update button can open the existing modal without re-fetching.
+    // Shared by openConfig() and glassCheckForUpdates().
     let glassLatestVersionInfo = null;
     function glassApplyConfigVersion(v) {
       glassLatestVersionInfo = v;
       const vCurrent = document.getElementById('config-version-current');
       const vStatus = document.getElementById('config-version-status');
       const updateBtn = document.getElementById('config-update-now-btn');
+      const restartBtn = document.getElementById('config-restart-apply-btn');
       if (vCurrent) vCurrent.textContent = 'Version: ' + v.current;
       if (vStatus) {
         if (v.updateAvailable && v.latest) {
           vStatus.textContent = '● Update available: ' + v.latest;
+          vStatus.style.color = 'var(--accent-green)';
+        } else if (v.restartNeeded) {
+          vStatus.textContent = '● Update downloaded — restart to apply';
           vStatus.style.color = 'var(--accent-green)';
         } else if (v.latest) {
           vStatus.textContent = '✓ Up to date';
@@ -2991,6 +2998,7 @@
         }
       }
       if (updateBtn) updateBtn.style.display = (v.updateAvailable && v.latest) ? '' : 'none';
+      if (restartBtn) restartBtn.style.display = v.restartNeeded ? '' : 'none';
     }
 
     function closeConfig() {
@@ -4899,16 +4907,16 @@
         const resp = await fetch('/api/version');
         if (!resp.ok) return;
         const v = await resp.json();
-        glassSetUpdateDot(v.updateAvailable);
+        glassSetUpdateDot(!!v.updateAvailable || !!v.restartNeeded);
       } catch {}
     }
     glassCheckUpdateBadge();
 
     // ── Update preview modal ─────────────────────────────────────────────────
 
-    function glassSetUpdateDot(updateAvailable) {
+    function glassSetUpdateDot(needsAttention) {
       const dot = document.getElementById('glass-update-dot');
-      if (dot) dot.style.display = updateAvailable ? 'inline-block' : 'none';
+      if (dot) dot.style.display = needsAttention ? 'inline-block' : 'none';
     }
 
     function glassShowUpdateModal(v) {
@@ -4940,7 +4948,7 @@
       showGlassBanner('Checking for updates…', 'info');
       try {
         const v = await glassApi('/api/version?force=true');
-        glassSetUpdateDot(v.updateAvailable);
+        glassSetUpdateDot(!!v.updateAvailable || !!v.restartNeeded);
         glassApplyConfigVersion(v);
         if (!v.updateAvailable) {
           showGlassBanner('You\'re on ' + (v.current || 'unknown') + ' — already the latest.', 'success', 5000);
@@ -5064,6 +5072,30 @@
         } else {
           // No cached info (or stale) — fall back to a fresh check, which opens the modal itself.
           await glassCheckForUpdates();
+        }
+      });
+    })();
+
+    // Wire "Restart to apply update" — disk HEAD moved since boot; POST /api/restart
+    // then poll until the process is back (same reconnect path as glassPerformUpdate).
+    (function() {
+      const btn = document.getElementById('config-restart-apply-btn');
+      if (!btn) return;
+      btn.addEventListener('click', async function() {
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = 'Restarting…';
+        try {
+          try {
+            await glassApi('/api/restart', {});
+          } catch {
+            // /api/restart may error as the server shuts down — proceed to reconnect
+          }
+          glassWaitForServerBack();
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = originalText;
+          showGlassBanner('Restart failed: ' + (err && err.message ? err.message : err), 'error', 8000);
         }
       });
     })();

@@ -1,5 +1,33 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { isNewerTag, getVersionInfo, planSelfUpdate, _resetVersionCacheForTesting } from "../lib/version";
+import {
+  isNewerTag,
+  isRestartNeeded,
+  getVersionInfo,
+  planSelfUpdate,
+  _resetVersionCacheForTesting,
+} from "../lib/version";
+
+describe("isRestartNeeded", () => {
+  test("equal commits → false", () => {
+    expect(isRestartNeeded("abc123", "abc123")).toBe(false);
+  });
+
+  test("differing commits → true", () => {
+    expect(isRestartNeeded("abc123", "def456")).toBe(true);
+  });
+
+  test("null boot → false", () => {
+    expect(isRestartNeeded(null, "def456")).toBe(false);
+  });
+
+  test("null disk → false", () => {
+    expect(isRestartNeeded("abc123", null)).toBe(false);
+  });
+
+  test("both null → false", () => {
+    expect(isRestartNeeded(null, null)).toBe(false);
+  });
+});
 
 describe("isNewerTag", () => {
   test("patch bump: v0.1.1 newer than v0.1.0", () => {

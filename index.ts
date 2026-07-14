@@ -3,7 +3,7 @@ import { z } from "zod";
 import { join, resolve as resolvePath } from "path";
 import { readFile } from "fs/promises";
 import { readConfig, writeConfig, redactConfig, type Config } from "./lib/config";
-import { getVersionInfo, performSelfUpdate } from "./lib/version";
+import { getVersionInfo, performSelfUpdate, getHeadCommit, isRestartNeeded } from "./lib/version";
 import { scanRepos, parseRemoteUrl } from "./lib/scanner";
 import { triageFeedback, type AiConfig, VALID_PRIORITIES, VALID_COMPONENTS, VALID_EFFORTS } from "./lib/triage";
 import { AI_PROVIDERS } from "./lib/config";
@@ -1090,7 +1090,14 @@ app.post("/api/git/ai-triage", async (c) => {
 // be redirected by config changes or path traversal in request bodies.
 const SELF_REPO_DIR = resolvePath(import.meta.dir);
 
+// Commit the running process was started on. Bun does not hot-reload from disk, so
+// if HEAD moves after boot (self-update, half-finished update, out-of-band pull)
+// the client needs an independent "Restart to apply" path — updateAvailable alone
+// goes false once disk matches the latest release tag.
+const BOOT_COMMIT = await getHeadCommit(SELF_REPO_DIR);
+
 // GET /api/version — current version, latest released version, and updateAvailable flag.
+// Also reports restartNeeded when disk HEAD has moved since process boot.
 // Read-only, no mutating side effects, so no sameOriginGuard is needed.
 // `?force=true` (or `?force=1`) bypasses the in-process cache so the user-initiated
 // "Check for Updates" button always sees fresh data.
@@ -1098,9 +1105,21 @@ app.get("/api/version", async (c) => {
   try {
     const forceParam = c.req.query("force");
     const force = forceParam === "true" || forceParam === "1";
-    return c.json(await getVersionInfo(force));
+    const info = await getVersionInfo(force);
+    const diskCommit = await getHeadCommit(SELF_REPO_DIR);
+    return c.json({
+      ...info,
+      restartNeeded: isRestartNeeded(BOOT_COMMIT, diskCommit),
+    });
   } catch {
-    return c.json({ current: "unknown", latest: null, updateAvailable: false, currentCommit: "", changelog: null });
+    return c.json({
+      current: "unknown",
+      latest: null,
+      updateAvailable: false,
+      currentCommit: "",
+      changelog: null,
+      restartNeeded: false,
+    });
   }
 });
 
