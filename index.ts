@@ -15,20 +15,34 @@ import { validateRepoPath, getAllRepoStatuses, runGit } from "./lib/gitStatus";
 import { gitPull, gitPush, pullAllSafe, deleteRepo, openVSCode, revealInFinder } from "./lib/gitOps";
 import { isAvailable as inferenceAvailable, run as inferenceRun } from "./lib/inference";
 import { getLeaderboard } from "./lib/leaderboard";
-import { getIssues, type IssueMode, type IssueStateFilter, type UpdatedPreset, type HostFilter } from "./lib/issues";
+import {
+  getIssues,
+  clearIssuesCache,
+  type IssueMode,
+  type IssueStateFilter,
+  type UpdatedPreset,
+  type HostFilter,
+} from "./lib/issues";
 import {
   getNotifications,
+  clearNotificationsCache,
   markNotificationDone,
   markNotificationRead,
   muteNotification,
 } from "./lib/notifications";
-import { getWork } from "./lib/work";
+import { getWork, clearWorkCache } from "./lib/work";
 import {
   getMergeable,
   getMergeableStatus,
   mergePullRequest,
+  clearMergeableCache,
   type MergeMethod,
 } from "./lib/mergeable";
+import {
+  normalizeHiddenRepo,
+  addHiddenRepo,
+  removeHiddenRepo,
+} from "./lib/inboxHide";
 import { evaluate as evaluateLearning, learn as learnRouting, listExamples, deleteExample, clearStore } from "./lib/repoLearning";
 
 const app = new Hono();
@@ -145,6 +159,19 @@ const ConfigUpdateSchema = z.object({
     })
     .optional(),
   ignoredRepos: z.array(z.string()).optional(),
+  inbox: z
+    .object({
+      hiddenRepos: z
+        .array(
+          z.object({
+            host: z.string().min(1).max(253),
+            owner: z.string().min(1).max(256),
+            repo: z.string().min(1).max(256),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
   repos: z
     .object({
       autoRefreshSec: z.number().int().min(0).max(1800).optional(),
@@ -596,6 +623,88 @@ app.get("/api/issues", async (c) => {
     return c.json(data);
   } catch (err: any) {
     return errorResponse("ISSUES_ERROR", err.message ?? "Failed to load issues", 500);
+  }
+});
+
+// ─── Inbox: hard-hide repos ──────────────────────────────────────────────────
+
+const HiddenRepoBodySchema = z.object({
+  host: z.string().min(1).max(253),
+  owner: z.string().min(1).max(256),
+  repo: z.string().min(1).max(256),
+});
+
+function clearInboxCaches(): void {
+  clearIssuesCache();
+  clearNotificationsCache();
+  clearWorkCache();
+  clearMergeableCache();
+}
+
+// GET /api/inbox/hidden — list hard-hidden repos
+app.get("/api/inbox/hidden", async (c) => {
+  const config = await readConfig();
+  return c.json({
+    hiddenRepos: config.inbox?.hiddenRepos ?? [],
+  });
+});
+
+// POST /api/inbox/hide — add host/owner/repo to hard-hide list
+app.post("/api/inbox/hide", async (c) => {
+  const csrf = sameOriginGuard(c);
+  if (csrf) return csrf;
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return errorResponse("INVALID_JSON", "Request body must be valid JSON", 400);
+  }
+  const parsed = HiddenRepoBodySchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse("VALIDATION_ERROR", parsed.error.message, 400);
+  }
+  const entry = normalizeHiddenRepo(parsed.data.host, parsed.data.owner, parsed.data.repo);
+  if (!entry) {
+    return errorResponse("VALIDATION_ERROR", "Invalid host/owner/repo", 400);
+  }
+  try {
+    const config = await readConfig();
+    const next = addHiddenRepo(config.inbox?.hiddenRepos ?? [], entry);
+    const updated = await writeConfig({ inbox: { hiddenRepos: next } });
+    clearInboxCaches();
+    return c.json({ ok: true, hiddenRepos: updated.inbox.hiddenRepos });
+  } catch (err: any) {
+    return errorResponse("CONFIG_WRITE_ERROR", err.message, 500);
+  }
+});
+
+// POST /api/inbox/unhide — remove host/owner/repo from hard-hide list
+app.post("/api/inbox/unhide", async (c) => {
+  const csrf = sameOriginGuard(c);
+  if (csrf) return csrf;
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return errorResponse("INVALID_JSON", "Request body must be valid JSON", 400);
+  }
+  const parsed = HiddenRepoBodySchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse("VALIDATION_ERROR", parsed.error.message, 400);
+  }
+  try {
+    const config = await readConfig();
+    const next = removeHiddenRepo(
+      config.inbox?.hiddenRepos ?? [],
+      parsed.data.host,
+      parsed.data.owner,
+      parsed.data.repo,
+    );
+    const updated = await writeConfig({ inbox: { hiddenRepos: next } });
+    clearInboxCaches();
+    return c.json({ ok: true, hiddenRepos: updated.inbox.hiddenRepos });
+  } catch (err: any) {
+    return errorResponse("CONFIG_WRITE_ERROR", err.message, 500);
   }
 });
 

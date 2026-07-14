@@ -17,6 +17,7 @@ import {
 } from "./issues";
 import { pMap } from "./gitStatus";
 import type { Config } from "./config";
+import { excludeHiddenRows } from "./inboxHide";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +58,8 @@ export interface WorkResult {
   generatedAt: string;
   cached: boolean;
   failures: IssueFailure[];
+  /** Count of hard-hidden repos in config (for empty-state affordance). */
+  hiddenCount: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -523,8 +526,10 @@ export async function getWork(config: Config, query: WorkQuery = {}): Promise<Wo
     cache = bag;
   }
 
-  const sorted = sortWorkSections(bag!.items);
-  const sections = sortWorkSections(bag!.items, { asSections: true });
+  const hidden = config.inbox?.hiddenRepos ?? [];
+  const visible = excludeHiddenRows(bag!.items, hidden);
+  const sorted = sortWorkSections(visible);
+  const sections = sortWorkSections(visible, { asSections: true });
 
   return {
     items: sorted,
@@ -532,5 +537,6 @@ export async function getWork(config: Config, query: WorkQuery = {}): Promise<Wo
     generatedAt: new Date(bag!.storedAt).toISOString(),
     cached,
     failures: bag!.failures,
+    hiddenCount: hidden.length,
   };
 }

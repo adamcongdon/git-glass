@@ -69,6 +69,28 @@ describe("ConfigSchema new fields", () => {
     }
   });
 
+  test("defaults inbox.hiddenRepos to empty array", () => {
+    const result = ConfigSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.inbox.hiddenRepos).toEqual([]);
+    }
+  });
+
+  test("accepts inbox.hiddenRepos entries", () => {
+    const result = ConfigSchema.safeParse({
+      inbox: {
+        hiddenRepos: [{ host: "github.com", owner: "acme", repo: "legacy" }],
+      },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.inbox.hiddenRepos).toEqual([
+        { host: "github.com", owner: "acme", repo: "legacy" },
+      ]);
+    }
+  });
+
   test("accepts ignoredRepos array", () => {
     const result = ConfigSchema.safeParse({
       ignoredRepos: ["/Users/me/code/archived-project"],
@@ -171,5 +193,21 @@ describe("redactConfig", () => {
     const redacted = redactConfig(config);
     expect(redacted.ignoredRepos).toEqual([]);
     expect(redacted.repos.autoRefreshSec).toBe(0);
+    expect(redacted.inbox.hiddenRepos).toEqual([]);
+  });
+
+  test("exposes inbox.hiddenRepos in redacted output", () => {
+    const config = {
+      scanPaths: [],
+      scanDepth: 3,
+      port: 7777,
+      inbox: {
+        hiddenRepos: [{ host: "github.com", owner: "acme", repo: "legacy" }],
+      },
+    };
+    const redacted = redactConfig(config);
+    expect(redacted.inbox.hiddenRepos).toEqual([
+      { host: "github.com", owner: "acme", repo: "legacy" },
+    ]);
   });
 });

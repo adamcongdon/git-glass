@@ -10,6 +10,7 @@ import { getGitRepos, pMap, runGit } from "./gitStatus";
 import { parseRemoteUrl } from "./scanner";
 import { getGhAccounts, getGhToken } from "./gh";
 import type { Config } from "./config";
+import { excludeHiddenRows } from "./inboxHide";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -89,6 +90,8 @@ export interface IssuesResult {
     repo: string;
     hostType: "github" | "gitlab";
   }>;
+  /** Count of hard-hidden repos in config (for empty-state affordance). */
+  hiddenCount: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -861,7 +864,12 @@ export async function getIssues(config: Config, query: IssuesQuery): Promise<Iss
     }),
   );
 
-  const { pageItems, hasMore, totalMatched } = paginateIssues(filtered, page, perPage);
+  // Hard-hide: apply unless intentional single-repo focus (This repo / repo dropdown).
+  const hidden = config.inbox?.hiddenRepos ?? [];
+  const focusRepo = query.repo?.trim() || (mode === "repo" ? query.repo : undefined);
+  const visible = excludeHiddenRows(filtered, hidden, { focusRepo });
+
+  const { pageItems, hasMore, totalMatched } = paginateIssues(visible, page, perPage);
 
   return {
     issues: pageItems,
@@ -873,5 +881,6 @@ export async function getIssues(config: Config, query: IssuesQuery): Promise<Iss
     cached,
     failures: bag!.failures,
     remotes: bag!.remotes,
+    hiddenCount: hidden.length,
   };
 }

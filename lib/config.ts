@@ -30,6 +30,20 @@ export const ConfigSchema = z.object({
     })
     .default({}),
   ignoredRepos: z.array(z.string()).default([]),  // absolute paths hidden from repos view
+  /** Inbox hard-hide: mute host/owner/repo from attention surfaces (not Repos ignore). */
+  inbox: z
+    .object({
+      hiddenRepos: z
+        .array(
+          z.object({
+            host: z.string().min(1).max(253),
+            owner: z.string().min(1).max(256),
+            repo: z.string().min(1).max(256),
+          }),
+        )
+        .default([]),
+    })
+    .default({}),
   repos: z
     .object({
       autoRefreshSec: z.number().int().min(0).max(1800).default(0),
@@ -65,6 +79,9 @@ export type RedactedConfig = {
     hosts: string[];
   };
   ignoredRepos: string[];
+  inbox: {
+    hiddenRepos: Array<{ host: string; owner: string; repo: string }>;
+  };
   repos: {
     autoRefreshSec: number;
   };
@@ -102,6 +119,9 @@ export function redactConfig(config: Partial<Config>): RedactedConfig {
       hosts: Object.keys(config.gitlab?.tokens ?? {}),
     },
     ignoredRepos: config.ignoredRepos ?? [],
+    inbox: {
+      hiddenRepos: config.inbox?.hiddenRepos ?? [],
+    },
     repos: {
       autoRefreshSec: config.repos?.autoRefreshSec ?? 0,
     },
@@ -188,6 +208,13 @@ export async function writeConfig(updates: Partial<Config>): Promise<Config> {
       tokens: mergedTokens,
     },
     ignoredRepos: mergedIgnored,
+    inbox: updates.inbox !== undefined
+      ? {
+          ...existing.inbox,
+          ...updates.inbox,
+          hiddenRepos: updates.inbox.hiddenRepos ?? existing.inbox.hiddenRepos,
+        }
+      : existing.inbox,
     repos: updates.repos !== undefined
       ? { ...existing.repos, ...updates.repos }
       : existing.repos,

@@ -14,6 +14,7 @@ import {
 } from "./issues";
 import { pMap } from "./gitStatus";
 import type { Config } from "./config";
+import { excludeHiddenRows } from "./inboxHide";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,8 @@ export interface MergeableResult {
   generatedAt: string;
   cached: boolean;
   failures: MergeableFailure[];
+  /** Count of hard-hidden repos in config (for empty-state affordance). */
+  hiddenCount: number;
 }
 
 export interface MergeInput {
@@ -737,11 +740,14 @@ export async function getMergeable(
     bag = { items: loaded.items, failures: loaded.failures, storedAt: now };
     cache = bag;
   }
+  const hidden = config.inbox?.hiddenRepos ?? [];
+  const visible = excludeHiddenRows(bag!.items, hidden);
   return {
-    items: bag!.items,
+    items: visible,
     generatedAt: new Date(bag!.storedAt).toISOString(),
     cached,
     failures: bag!.failures,
+    hiddenCount: hidden.length,
   };
 }
 

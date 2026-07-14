@@ -8,6 +8,7 @@
 import { getGhAccounts, getGhToken } from "./gh";
 import { discoverLocalRemotes, remoteKey, type LocalRemote } from "./issues";
 import type { Config } from "./config";
+import { excludeHiddenNotifications } from "./inboxHide";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -63,6 +64,8 @@ export interface NotificationsResult {
   generatedAt: string;
   cached: boolean;
   failures: NotificationFailure[];
+  /** Count of hard-hidden repos in config (for empty-state affordance). */
+  hiddenCount: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -507,16 +510,20 @@ export async function getNotifications(
     account: query.account,
   });
 
+  const hidden = config.inbox?.hiddenRepos ?? [];
+  const visible = excludeHiddenNotifications(filtered, hidden);
+
   // Account filter already applied; dimmed read stays in list
-  const groups = groupByReason(filtered);
+  const groups = groupByReason(visible);
 
   return {
-    notifications: filtered,
+    notifications: visible,
     groups,
-    undonedCount: countUndone(filtered),
+    undonedCount: countUndone(visible),
     generatedAt: new Date(bag!.storedAt).toISOString(),
     cached,
     failures: bag!.failures,
+    hiddenCount: hidden.length,
   };
 }
 

@@ -1001,6 +1001,95 @@
     }
     .glass-ignored-path { font-size: 12px; font-family: monospace; color: var(--muted); word-break: break-all; flex: 1; }
 
+    /* Inbox hard-hidden repos drawer (mirrors ignored panel) */
+    #glass-inbox-hidden-panel {
+      position: fixed;
+      top: 0; right: 0; bottom: 0;
+      width: min(400px, 100vw);
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      z-index: 210;
+      overflow-y: auto;
+      padding: 20px;
+      animation: slideIn 0.2s ease;
+      display: none;
+    }
+    #glass-inbox-hidden-panel.open { display: block; }
+    #glass-inbox-hidden-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 209;
+    }
+    #glass-inbox-hidden-backdrop.open { display: block; }
+    .glass-inbox-hide-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: var(--radius);
+      padding: 2px 8px;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .glass-inbox-hide-btn:hover {
+      color: var(--text);
+      border-color: var(--muted);
+      background: var(--hover-overlay);
+    }
+    .glass-inbox-hide-btn:focus {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+    .glass-inbox-hidden-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .glass-inbox-hidden-btn:hover {
+      color: var(--text);
+      border-color: var(--muted);
+    }
+    .glass-inbox-hidden-btn.has-hidden {
+      color: var(--text);
+      border-color: var(--muted);
+    }
+    .glass-inbox-empty-hidden {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .glass-inbox-empty-hidden button {
+      background: none;
+      border: none;
+      color: var(--accent-blue, #3b82f6);
+      text-decoration: underline;
+      cursor: pointer;
+      font: inherit;
+      padding: 0;
+    }
+    .glass-notif-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: flex-end;
+    }
+    .glass-issue-row-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-top: 2px;
+    }
+
     /* ── Glass Modals ─────────────────────────────────────────────────────── */
     .glass-modal-overlay {
       display: none;
@@ -2111,6 +2200,9 @@
       <div class="glass-issues-title-row">
         <h2 class="glass-issues-title">Inbox</h2>
         <span class="glass-issues-hint" id="glass-inbox-hint">Notifications · Work · Mergeable · local issues</span>
+        <button type="button" class="glass-inbox-hidden-btn" id="glass-inbox-hidden-btn" title="Manage hard-hidden repositories" hidden>
+          Hidden <span id="glass-inbox-hidden-count">0</span>
+        </button>
       </div>
       <button type="button" class="glass-issues-refresh" id="glass-issues-refresh" title="Refresh (bypass cache)">Refresh</button>
     </header>
@@ -2192,11 +2284,30 @@
       <div class="glass-issues-loading" id="glass-issues-loading" role="status" hidden>
         <span class="spinner" style="width:18px;height:18px;display:inline-block;"></span> Loading&hellip;
       </div>
-      <div class="glass-issues-empty" id="glass-issues-empty" hidden>Inbox zero. Nothing needs you right now.</div>
+      <div class="glass-issues-empty" id="glass-issues-empty" hidden>
+        <div id="glass-issues-empty-msg">Inbox zero. Nothing needs you right now.</div>
+        <div class="glass-inbox-empty-hidden" id="glass-inbox-empty-hidden" hidden></div>
+      </div>
       <div id="glass-issues-rows" role="list" aria-label="Inbox items"></div>
       <div class="glass-issues-more" id="glass-issues-more" hidden>
         <button type="button" id="glass-issues-load-more">Load more</button>
       </div>
+    </div>
+
+    <!-- Hard-hidden repos drawer -->
+    <div id="glass-inbox-hidden-backdrop"></div>
+    <div id="glass-inbox-hidden-panel" role="dialog" aria-modal="true" aria-label="Hidden Inbox repositories">
+      <div class="glass-ignored-header">
+        <h2>Hidden from Inbox</h2>
+        <button class="icon-btn" id="glass-close-inbox-hidden-btn" aria-label="Close hidden repos panel">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.45;">
+        These repositories are hard-hidden from Notifications, Work, Mergeable, and All local.
+        This repo mode and the single-repo filter still show them.
+      </p>
+      <div id="glass-inbox-hidden-list"></div>
     </div>
   </section><!-- /#view-issues -->
 
@@ -3441,6 +3552,9 @@
         failures: [],
         totalMatched: 0,
         undonedCount: 0,
+        /** Hard-hidden repos: [{ host, owner, repo }] */
+        hiddenRepos: [],
+        hiddenCount: 0,
         notif: {
           localOnly: true,
           includeCi: false,
@@ -3509,7 +3623,7 @@
       }
 
       if (v === 'issues') {
-        glassInboxLoad({ force: false });
+        glassInboxRefreshHidden().then(() => glassInboxLoad({ force: false }));
         glassStartInboxPoll();
       } else {
         glassStopInboxPoll();
@@ -3833,17 +3947,89 @@
       document.getElementById('glass-bulk-mute').title = hasGl ? 'Mute not supported for GitLab todos' : '';
     }
 
+    function glassInboxHiddenKey(host, owner, repo) {
+      return String(host || '').toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '') +
+        '|' + String(owner || '').toLowerCase() + '|' + String(repo || '').toLowerCase();
+    }
+
+    function glassInboxIsHidden(host, owner, repo) {
+      const key = glassInboxHiddenKey(host, owner, repo);
+      return (glassState.issues.hiddenRepos || []).some(
+        (h) => glassInboxHiddenKey(h.host, h.owner, h.repo) === key,
+      );
+    }
+
+    function glassInboxParseOwnerRepo(ownerRepo) {
+      const s = String(ownerRepo || '').trim().replace(/^\/+|\/+$/g, '');
+      if (!s || s.indexOf('/') < 0) return null;
+      const parts = s.split('/').filter(Boolean);
+      if (parts.length < 2) return null;
+      const repo = parts.pop();
+      const owner = parts.join('/');
+      if (!owner || !repo) return null;
+      return { owner: owner, repo: repo };
+    }
+
+    function glassInboxFormatHidden(h) {
+      const host = String(h.host || '').toLowerCase();
+      if (host === 'github.com') return h.owner + '/' + h.repo;
+      return h.owner + '/' + h.repo + ' (' + h.host + ')';
+    }
+
+    function glassInboxSyncHiddenChrome() {
+      const n = glassState.issues.hiddenCount | 0;
+      const btn = document.getElementById('glass-inbox-hidden-btn');
+      const countEl = document.getElementById('glass-inbox-hidden-count');
+      if (countEl) countEl.textContent = String(n);
+      if (btn) {
+        btn.hidden = n <= 0;
+        btn.classList.toggle('has-hidden', n > 0);
+        btn.setAttribute('aria-label', n + ' hidden repositor' + (n === 1 ? 'y' : 'ies'));
+      }
+    }
+
+    function glassInboxSetHiddenList(list) {
+      glassState.issues.hiddenRepos = Array.isArray(list) ? list : [];
+      glassState.issues.hiddenCount = glassState.issues.hiddenRepos.length;
+      glassInboxSyncHiddenChrome();
+    }
+
+    async function glassInboxRefreshHidden() {
+      try {
+        const data = await glassApi('/api/inbox/hidden');
+        glassInboxSetHiddenList(data.hiddenRepos || []);
+      } catch {
+        /* non-fatal */
+      }
+    }
+
     function glassIssuesFillRepoSelect(remotes) {
       const sel = document.getElementById('glass-issues-repo');
       if (!sel) return;
       const prev = glassState.issues.repo;
       const opts = ['<option value="">All repos</option>'];
       const seen = new Set();
+      // Local remotes first
       for (const r of remotes || []) {
         const key = r.owner + '/' + r.repo;
         if (seen.has(key.toLowerCase())) continue;
         seen.add(key.toLowerCase());
-        const label = key + (r.hostType === 'gitlab' ? ' (' + r.host + ')' : '');
+        const isHidden = glassInboxIsHidden(r.host, r.owner, r.repo);
+        const label = key +
+          (r.hostType === 'gitlab' ? ' (' + r.host + ')' : '') +
+          (isHidden ? ' · hidden' : '');
+        opts.push(
+          '<option value="' + glassIssuesEsc(key) + '"' +
+          (prev === key ? ' selected' : '') +
+          '>' + glassIssuesEsc(label) + '</option>'
+        );
+      }
+      // Hidden repos not in local remotes (still focusable for bypass)
+      for (const h of glassState.issues.hiddenRepos || []) {
+        const key = h.owner + '/' + h.repo;
+        if (seen.has(key.toLowerCase())) continue;
+        seen.add(key.toLowerCase());
+        const label = glassInboxFormatHidden(h) + ' · hidden';
         opts.push(
           '<option value="' + glassIssuesEsc(key) + '"' +
           (prev === key ? ' selected' : '') +
@@ -3852,6 +4038,100 @@
       }
       sel.innerHTML = opts.join('');
       if (prev) sel.value = prev;
+    }
+
+    function glassInboxHideBtnHtml(host, owner, repo) {
+      if (!host || !owner || !repo) return '';
+      return '<button type="button" class="glass-inbox-hide-btn" ' +
+        'data-host="' + glassIssuesEsc(host) + '" ' +
+        'data-owner="' + glassIssuesEsc(owner) + '" ' +
+        'data-repo="' + glassIssuesEsc(repo) + '" ' +
+        'title="Hide this repository from Inbox">Hide repo</button>';
+    }
+
+    function glassInboxWireHideButton(root) {
+      const btn = root.querySelector('.glass-inbox-hide-btn');
+      if (!btn) return;
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        glassInboxHideRepo(btn.dataset.host, btn.dataset.owner, btn.dataset.repo);
+      });
+    }
+
+    async function glassInboxHideRepo(host, owner, repo) {
+      if (!host || !owner || !repo) return;
+      const label = (String(host).toLowerCase() === 'github.com')
+        ? (owner + '/' + repo)
+        : (owner + '/' + repo + ' on ' + host);
+      const ok = window.confirm(
+        'Hide ' + label + ' from Inbox (all attention modes) until you unhide?\n\n' +
+        'This repo mode and the single-repo filter still show it.',
+      );
+      if (!ok) return;
+      try {
+        const data = await glassApi('/api/inbox/hide', { host: host, owner: owner, repo: repo });
+        glassInboxSetHiddenList(data.hiddenRepos || []);
+        showGlassBanner('Hidden ' + label + ' from Inbox', 'success');
+        await glassInboxLoad({ force: true });
+      } catch (e) {
+        showGlassBanner('Hide failed: ' + e.message, 'error');
+      }
+    }
+
+    async function glassInboxUnhideRepo(host, owner, repo) {
+      try {
+        const data = await glassApi('/api/inbox/unhide', { host: host, owner: owner, repo: repo });
+        glassInboxSetHiddenList(data.hiddenRepos || []);
+        showGlassBanner('Restored ' + owner + '/' + repo + ' to Inbox', 'success');
+        await glassRefreshInboxHiddenPanel();
+        await glassInboxLoad({ force: true });
+      } catch (e) {
+        showGlassBanner('Unhide failed: ' + e.message, 'error');
+      }
+    }
+
+    function glassOpenInboxHiddenPanel() {
+      document.getElementById('glass-inbox-hidden-panel').classList.add('open');
+      document.getElementById('glass-inbox-hidden-backdrop').classList.add('open');
+      glassRefreshInboxHiddenPanel();
+      document.getElementById('glass-close-inbox-hidden-btn').focus();
+    }
+
+    function glassCloseInboxHiddenPanel() {
+      document.getElementById('glass-inbox-hidden-panel').classList.remove('open');
+      document.getElementById('glass-inbox-hidden-backdrop').classList.remove('open');
+    }
+
+    async function glassRefreshInboxHiddenPanel() {
+      const list = document.getElementById('glass-inbox-hidden-list');
+      if (!list) return;
+      list.innerHTML = '<div style="color:var(--muted);font-size:13px;">Loading...</div>';
+      try {
+        await glassInboxRefreshHidden();
+        const paths = glassState.issues.hiddenRepos || [];
+        if (paths.length === 0) {
+          list.innerHTML = '<div style="color:var(--muted);font-size:13px;">No hidden repositories.</div>';
+          return;
+        }
+        list.innerHTML = '';
+        for (const h of paths) {
+          const item = document.createElement('div');
+          item.className = 'glass-ignored-item';
+          item.innerHTML =
+            '<span class="glass-ignored-path">' + glassIssuesEsc(glassInboxFormatHidden(h)) + '</span>';
+          const restoreBtn = document.createElement('button');
+          restoreBtn.className = 'glass-action-btn';
+          restoreBtn.textContent = 'Unhide';
+          restoreBtn.style.flexShrink = '0';
+          restoreBtn.addEventListener('click', () => glassInboxUnhideRepo(h.host, h.owner, h.repo));
+          item.appendChild(restoreBtn);
+          list.appendChild(item);
+        }
+      } catch (e) {
+        list.innerHTML = '<div style="color:var(--error);font-size:13px;">Failed to load: ' +
+          glassIssuesEsc(e.message) + '</div>';
+      }
     }
 
     function glassIssuesRenderFailures(failures) {
@@ -3913,7 +4193,11 @@
             '<span title="Comments">💬 ' + glassIssuesEsc(String(issue.comments || 0)) + '</span>' +
             milestone +
           '</div>' +
-          (labels || moreLabels ? '<div class="glass-issue-labels">' + labels + moreLabels + '</div>' : '');
+          (labels || moreLabels ? '<div class="glass-issue-labels">' + labels + moreLabels + '</div>' : '') +
+          '<div class="glass-issue-row-actions">' +
+            glassInboxHideBtnHtml(issue.host, issue.owner, issue.repo) +
+          '</div>';
+        glassInboxWireHideButton(row);
         container.appendChild(row);
       }
     }
@@ -3939,6 +4223,10 @@
           row.setAttribute('data-idx', String(idx));
           row.setAttribute('role', 'listitem');
           const checked = selected.has(n.id) ? ' checked' : '';
+          const parsedRepo = n.repo ? glassInboxParseOwnerRepo(n.repo) : null;
+          const hideHtml = parsedRepo
+            ? glassInboxHideBtnHtml(n.host, parsedRepo.owner, parsedRepo.repo)
+            : '';
           row.innerHTML =
             '<input type="checkbox" class="glass-notif-check" aria-label="Select notification"' + checked + ' />' +
             '<div class="glass-notif-main">' +
@@ -3953,7 +4241,9 @@
                 '<span>' + glassIssuesEsc(glassIssuesRelativeTime(n.updatedAt)) + '</span>' +
                 (n.unread ? '<span>unread</span>' : '<span>read</span>') +
               '</div>' +
-            '</div>';
+            '</div>' +
+            '<div class="glass-notif-actions">' + hideHtml + '</div>';
+          glassInboxWireHideButton(row);
           const cb = row.querySelector('.glass-notif-check');
           cb.addEventListener('click', (e) => e.stopPropagation());
           cb.addEventListener('change', () => {
@@ -4002,7 +4292,11 @@
               '<span>' + glassIssuesEsc(w.attention) + '</span>' +
               (w.author ? '<span>@' + glassIssuesEsc(w.author) + '</span>' : '') +
               '<span>↻ ' + glassIssuesEsc(glassIssuesRelativeTime(w.updatedAt)) + '</span>' +
+            '</div>' +
+            '<div class="glass-issue-row-actions">' +
+              glassInboxHideBtnHtml(w.host, w.owner, w.repo) +
             '</div>';
+          glassInboxWireHideButton(row);
           container.appendChild(row);
         }
       }
@@ -4053,7 +4347,9 @@
                 : '') +
               '<a class="btn btn-ghost" href="' + glassIssuesEsc(m.htmlUrl) +
                 '" target="_blank" rel="noopener noreferrer">Open</a>' +
+              glassInboxHideBtnHtml(m.host, m.owner, m.repo) +
             '</div>';
+          glassInboxWireHideButton(row);
           const mergeBtn = row.querySelector('.glass-merge-btn');
           if (mergeBtn) {
             mergeBtn.addEventListener('click', (e) => {
@@ -4070,6 +4366,8 @@
 
     function glassIssuesUpdateEmpty() {
       const empty = document.getElementById('glass-issues-empty');
+      const emptyMsg = document.getElementById('glass-issues-empty-msg');
+      const emptyHidden = document.getElementById('glass-inbox-empty-hidden');
       const more = document.getElementById('glass-issues-more');
       const mode = glassState.issues.mode;
       let n = 0;
@@ -4079,13 +4377,30 @@
       else n = glassState.issues.items.length;
       empty.hidden = n > 0 || glassState.issues.loading;
       if (n === 0 && !glassState.issues.loading) {
-        if (mode === 'notifications') empty.textContent = 'Inbox zero. Enable CI or Watching chips if you expect more.';
-        else if (mode === 'work') empty.textContent = 'No attention items on local remotes.';
-        else if (mode === 'mergeable') empty.textContent = 'Nothing green to ship right now.';
-        else if (mode === 'repo' && !glassState.issues.repo) empty.textContent = 'Pick a repository for This repo mode.';
-        else empty.textContent = 'No issues match these filters.';
+        let msg = 'No issues match these filters.';
+        if (mode === 'notifications') msg = 'Inbox zero. Enable CI or Watching chips if you expect more.';
+        else if (mode === 'work') msg = 'No attention items on local remotes.';
+        else if (mode === 'mergeable') msg = 'Nothing green to ship right now.';
+        else if (mode === 'repo' && !glassState.issues.repo) msg = 'Pick a repository for This repo mode.';
+        if (emptyMsg) emptyMsg.textContent = msg;
+        else empty.textContent = msg;
+        const hc = glassState.issues.hiddenCount | 0;
+        if (emptyHidden) {
+          if (hc > 0) {
+            emptyHidden.hidden = false;
+            emptyHidden.innerHTML =
+              glassIssuesEsc(String(hc)) + ' repo' + (hc === 1 ? '' : 's') +
+              ' hidden · <button type="button" id="glass-inbox-empty-manage">Manage</button>';
+            const manage = document.getElementById('glass-inbox-empty-manage');
+            if (manage) manage.addEventListener('click', glassOpenInboxHiddenPanel);
+          } else {
+            emptyHidden.hidden = true;
+            emptyHidden.innerHTML = '';
+          }
+        }
       }
       more.hidden = !(mode === 'all' || mode === 'repo') || !glassState.issues.hasMore;
+      glassInboxSyncHiddenChrome();
     }
 
     async function glassLoadNotifications(opts) {
@@ -4103,11 +4418,13 @@
       st.loaded = true;
       st.failures = data.failures || [];
       st.undonedCount = data.undonedCount || 0;
+      if (typeof data.hiddenCount === 'number') st.hiddenCount = data.hiddenCount;
       nf.groups = data.groups || [];
       nf.flat = data.notifications || [];
       nf.selected = new Set();
       nf.focusIdx = 0;
       glassSetInboxBadge(st.undonedCount);
+      glassInboxSyncHiddenChrome();
       glassIssuesRenderFailures(st.failures);
       // Fill account select from rows
       const accSel = document.getElementById('glass-notif-account');
@@ -4129,9 +4446,11 @@
       const data = await glassApi('/api/work?' + params.toString());
       glassState.issues.loaded = true;
       glassState.issues.failures = data.failures || [];
+      if (typeof data.hiddenCount === 'number') glassState.issues.hiddenCount = data.hiddenCount;
       glassState.issues.work.sections = data.sections || [];
       glassState.issues.work.items = data.items || [];
       glassIssuesRenderFailures(data.failures || []);
+      glassInboxSyncHiddenChrome();
       glassRenderWork();
     }
 
@@ -4142,8 +4461,10 @@
       const data = await glassApi('/api/mergeable?' + params.toString());
       glassState.issues.loaded = true;
       glassState.issues.failures = data.failures || [];
+      if (typeof data.hiddenCount === 'number') glassState.issues.hiddenCount = data.hiddenCount;
       glassState.issues.mergeable.items = data.items || [];
       glassIssuesRenderFailures(data.failures || []);
+      glassInboxSyncHiddenChrome();
       glassRenderMergeable();
     }
 
@@ -4177,6 +4498,8 @@
       st.totalMatched = data.totalMatched || 0;
       st.failures = data.failures || [];
       st.remotes = data.remotes || [];
+      if (typeof data.hiddenCount === 'number') st.hiddenCount = data.hiddenCount;
+      glassInboxSyncHiddenChrome();
       glassIssuesFillRepoSelect(st.remotes);
       glassIssuesRenderFailures(st.failures);
       const batch = data.issues || [];
@@ -4394,6 +4717,9 @@
     document.getElementById('glass-issues-refresh').addEventListener('click', () => {
       glassInboxLoad({ force: true });
     });
+    document.getElementById('glass-inbox-hidden-btn').addEventListener('click', glassOpenInboxHiddenPanel);
+    document.getElementById('glass-close-inbox-hidden-btn').addEventListener('click', glassCloseInboxHiddenPanel);
+    document.getElementById('glass-inbox-hidden-backdrop').addEventListener('click', glassCloseInboxHiddenPanel);
 
     document.getElementById('glass-issues-load-more').addEventListener('click', () => {
       glassState.issues.page += 1;
