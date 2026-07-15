@@ -3402,7 +3402,9 @@
       const [cfgResp, accountsResp, versionResp] = await Promise.allSettled([
         fetch('/api/config'),
         fetch('/api/gh-accounts'),
-        fetch('/api/version'),
+        // Authoritative check (fetches tags server-side) so the inline
+        // "Update & Restart" button can't be shown for a stale-tag false positive.
+        fetch('/api/version?force=true'),
       ]);
       if (accountsResp.status === 'fulfilled' && accountsResp.value.ok) {
         ghAccounts = await accountsResp.value.json();

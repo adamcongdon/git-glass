@@ -53,6 +53,37 @@ async function runGit(args: string[]): Promise<string | null> {
   }
 }
 
+// Best-effort `git fetch --tags` for the authoritative (force) version check.
+// Without this, `git describe` can report a stale base version when the local
+// checkout is missing the newest release tag even though HEAD already contains
+// (or trails) the release commit — which makes `updateAvailable` disagree with
+// what `performSelfUpdate` can actually do, so the "Update & Restart" button
+// advertises an update that turns out to be a silent no-op. Fetching tags first
+// makes `git describe` (and therefore `updateAvailable`) reflect reality.
+//
+// Hardened like performSelfUpdate's gitSpawn: credential prompts disabled so an
+// offline/unauthenticated fetch fails fast instead of hanging, with a hard
+// timeout. Never throws — a failure just leaves the local tags as-is (we fall
+// back to whatever `git describe` reports, exactly as before this fix).
+async function fetchTags(timeoutMs = 10_000): Promise<void> {
+  try {
+    const proc = Bun.spawn(["git", "fetch", "--tags", "--force", "origin"], {
+      cwd: REPO_DIR,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "echo" },
+    });
+    const timer = setTimeout(() => proc.kill(), timeoutMs);
+    try {
+      await proc.exited;
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+    // best-effort — ignore
+  }
+}
+
 // True when the running process was booted on a different commit than disk HEAD.
 // Both must be non-null strings that differ — null/empty either side means "unknown",
 // not "restart needed" (we never nag on missing git metadata).
@@ -91,6 +122,12 @@ export async function getVersionInfo(force = false): Promise<VersionInfo> {
     const { expiresAt: _expiresAt, ...info } = _cache;
     return info;
   }
+
+  // On the authoritative (force) path — "Check for Updates", opening Config, and
+  // the pre-update re-check — refresh local tags first so `git describe` and the
+  // resulting `updateAvailable` can't be a false positive from a stale tag set.
+  // The cheap polling path (non-force) stays local-only to avoid a fetch per poll.
+  if (force) await fetchTags();
 
   const describe = await runGit(["describe", "--tags", "--always"]);
   const current = describe ?? "unknown";
