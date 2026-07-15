@@ -7,8 +7,9 @@ export function listLanIPv4(): string[] {
   for (const entries of Object.values(nets)) {
     if (!entries) continue;
     for (const net of entries) {
-      const family = net.family;
-      const isV4 = family === "IPv4" || family === 4;
+      // Node historically used family 4|6 (number); modern Node/Bun use "IPv4"|"IPv6".
+      const family = String(net.family);
+      const isV4 = family === "IPv4" || family === "4";
       if (isV4 && !net.internal && net.address) {
         ips.push(net.address);
       }
