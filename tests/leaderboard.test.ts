@@ -59,19 +59,19 @@ describe("slugifyPath", () => {
 // ─── getClaudeCostMap ───────────────────────────────────────────────────────
 
 describe("getClaudeCostMap", () => {
-  let prevPaiDir: string | undefined;
+  let prevCostRoots: string | undefined;
   let tmpPaiDir: string;
 
   beforeEach(async () => {
-    prevPaiDir = process.env.PAI_DIR;
+    prevCostRoots = process.env.GLASS_COST_ROOTS;
     tmpPaiDir = join(tmpdir(), `pai-test-${Date.now()}-${Math.random()}`);
     await mkdir(join(tmpPaiDir, "MEMORY", "STATE"), { recursive: true });
-    process.env.PAI_DIR = tmpPaiDir;
+    process.env.GLASS_COST_ROOTS = tmpPaiDir;
   });
 
   afterEach(async () => {
-    if (prevPaiDir === undefined) delete process.env.PAI_DIR;
-    else process.env.PAI_DIR = prevPaiDir;
+    if (prevCostRoots === undefined) delete process.env.GLASS_COST_ROOTS;
+    else process.env.GLASS_COST_ROOTS = prevCostRoots;
     await rm(tmpPaiDir, { recursive: true, force: true });
   });
 
@@ -101,6 +101,36 @@ describe("getClaudeCostMap", () => {
     );
     const map = await getClaudeCostMap();
     expect(map).toEqual({});
+  });
+
+  test("aggregates MTD cents from session-costs.jsonl", async () => {
+    await mkdir(join(tmpPaiDir, "MEMORY", "OBSERVABILITY"), { recursive: true });
+    const thisMonth = new Date().toISOString();
+    const lastMonth = new Date(Date.now() - 40 * 86400000).toISOString();
+    const lines = [
+      JSON.stringify({
+        project: "-Users-x-foo",
+        costTotal: 1.5,
+        lastTimestamp: thisMonth,
+      }),
+      JSON.stringify({
+        project: "-Users-x-foo",
+        costTotal: 0.25,
+        lastTimestamp: thisMonth,
+      }),
+      JSON.stringify({
+        project: "-Users-x-bar",
+        costTotal: 9.99,
+        lastTimestamp: lastMonth,
+      }),
+    ];
+    await writeFile(
+      join(tmpPaiDir, "MEMORY", "OBSERVABILITY", "session-costs.jsonl"),
+      lines.join("\n") + "\n",
+    );
+    const map = await getClaudeCostMap();
+    expect(map["-Users-x-foo"]).toBe(175); // 1.5 + 0.25 → 175 cents
+    expect(map["-Users-x-bar"]).toBeUndefined(); // outside MTD
   });
 });
 
@@ -420,6 +450,10 @@ describe("getLeaderboard integration", () => {
     expect(repo).toHaveProperty("filesChanged");
     expect(repo).toHaveProperty("lastCommitDate");
     expect(repo).toHaveProperty("score");
+    expect(repo).toHaveProperty("host");
+    expect(repo).toHaveProperty("owner");
+    expect(repo).toHaveProperty("remoteUrl");
+    expect(repo).toHaveProperty("claudeCostCents");
   });
 
   test("repos are sorted by score descending", async () => {

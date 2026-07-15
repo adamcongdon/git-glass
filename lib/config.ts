@@ -5,10 +5,16 @@ import { join, dirname, resolve as resolvePath } from "path";
 export const AI_PROVIDERS = ["github-copilot", "anthropic", "openai", "grok", "openai-compatible", "local"] as const;
 export type AiProvider = typeof AI_PROVIDERS[number];
 
+/** Where the HTTP server listens. `0.0.0.0` = all interfaces (LAN). */
+export const BIND_HOSTS = ["127.0.0.1", "0.0.0.0"] as const;
+export type BindHost = (typeof BIND_HOSTS)[number];
+
 export const ConfigSchema = z.object({
   scanPaths: z.array(z.string().min(1)).default([]),
   scanDepth: z.number().int().min(1).max(10).default(3),
   port: z.number().int().default(7777),
+  /** `0.0.0.0` exposes Glass on the LAN; `127.0.0.1` is loopback-only. */
+  bindHost: z.enum(BIND_HOSTS).default("0.0.0.0"),
   ai: z
     .object({
       provider: z.enum(AI_PROVIDERS).default("github-copilot"),
@@ -64,6 +70,7 @@ export type RedactedConfig = {
   scanPaths: string[];
   scanDepth: number;
   port: number;
+  bindHost: BindHost;
   ai: {
     provider: AiProvider;
     model?: string;
@@ -104,6 +111,7 @@ export function redactConfig(config: Partial<Config>): RedactedConfig {
     scanPaths: config.scanPaths ?? [],
     scanDepth: config.scanDepth ?? 3,
     port: config.port ?? 7777,
+    bindHost: config.bindHost === "127.0.0.1" ? "127.0.0.1" : "0.0.0.0",
     ai: {
       provider: config.ai?.provider ?? "github-copilot",
       model: config.ai?.model,

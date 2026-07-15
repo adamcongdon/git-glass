@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v27';
+const CACHE_VERSION = 'v30';
 const CACHE_NAME = `feedback-tool-${CACHE_VERSION}`;
 
 const APP_SHELL = [

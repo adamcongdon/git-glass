@@ -16,6 +16,12 @@ import { gitPull, gitPush, pullAllSafe, deleteRepo, openVSCode, revealInFinder }
 import { isAvailable as inferenceAvailable, run as inferenceRun } from "./lib/inference";
 import { getLeaderboard } from "./lib/leaderboard";
 import {
+  getActivityDashboard,
+  getActivityDayDetail,
+  clearActivityCache,
+  parseActivityWindow,
+} from "./lib/activity";
+import {
   getIssues,
   clearIssuesCache,
   type IssueMode,
@@ -44,6 +50,9 @@ import {
   removeHiddenRepo,
 } from "./lib/inboxHide";
 import { evaluate as evaluateLearning, learn as learnRouting, listExamples, deleteExample, clearStore } from "./lib/repoLearning";
+import { sameOriginGuard as sameOriginGuardImpl } from "./lib/csrf";
+import { formatListenUrls } from "./lib/lan";
+import type { BindHost } from "./lib/config";
 
 const app = new Hono();
 
@@ -67,27 +76,9 @@ function errorResponse(code: string, message: string, status: number): Response 
   });
 }
 
-// Origin/Referer check for mutating endpoints. The server only binds to 127.0.0.1, but a
-// malicious webpage can still POST cross-origin with Content-Type: text/plain (no preflight),
-// and Hono parses the JSON regardless. Returns null when the request looks same-origin (or
-// has no Origin/Referer at all — assumed CLI usage).
+// Origin/Referer must match request Host (LAN-safe). Missing both → CLI allowed.
 function sameOriginGuard(c: any): Response | null {
-  const isLoopbackHost = (h: string) =>
-    h === "127.0.0.1" || h === "localhost" || h === "::1" || h === "[::1]";
-  const checkUrl = (raw: string | undefined): boolean | null => {
-    if (!raw) return null;
-    try {
-      return isLoopbackHost(new URL(raw).hostname);
-    } catch {
-      return false;
-    }
-  };
-  const originOk = checkUrl(c.req.header("origin"));
-  if (originOk === false) return errorResponse("CSRF_REJECTED", "Cross-origin request rejected", 403);
-  if (originOk === true) return null;
-  const refererOk = checkUrl(c.req.header("referer"));
-  if (refererOk === false) return errorResponse("CSRF_REJECTED", "Cross-origin request rejected", 403);
-  return null;
+  return sameOriginGuardImpl(c, errorResponse);
 }
 
 // Health check
@@ -136,6 +127,7 @@ const HostnameSchema = z.string().regex(
 const ConfigUpdateSchema = z.object({
   scanPaths: z.array(z.string().min(1)).optional(),
   scanDepth: z.number().int().min(1).max(10).optional(),
+  bindHost: z.enum(["127.0.0.1", "0.0.0.0"]).optional(),
   ai: z
     .object({
       provider: z.enum(AI_PROVIDERS).optional(),
@@ -563,6 +555,65 @@ app.get("/api/leaderboard", async (c) => {
   } catch (err: any) {
     return errorResponse("LEADERBOARD_ERROR", err.message, 500);
   }
+});
+
+// GET /api/activity — multi-account contribution heatmap + breakdown
+const ActivityWindowSchema = z.enum(["7d", "30d", "90d", "1y"]).optional().default("1y");
+
+app.get("/api/activity", async (c) => {
+  const raw = c.req.query("window");
+  const parsed = ActivityWindowSchema.safeParse(raw);
+  if (!parsed.success) {
+    return errorResponse("VALIDATION_ERROR", parsed.error.message, 400);
+  }
+  const force = c.req.query("force") === "1" || c.req.query("force") === "true";
+  const accountsRaw = c.req.query("accounts") || "";
+  const accountIds = accountsRaw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  try {
+    const config = await readConfig();
+    // Validate window via shared parser for consistent errors
+    parseActivityWindow(parsed.data);
+    const data = await getActivityDashboard(config, parsed.data, {
+      force,
+      accountIds: accountIds.length ? accountIds : undefined,
+    });
+    return c.json(data);
+  } catch (err: any) {
+    return errorResponse("ACTIVITY_ERROR", err.message, 500);
+  }
+});
+
+// GET /api/activity/day?date=YYYY-MM-DD — day drawer events
+app.get("/api/activity/day", async (c) => {
+  const date = c.req.query("date") || "";
+  const accountsRaw = c.req.query("accounts") || "";
+  const accountIds = accountsRaw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return errorResponse("VALIDATION_ERROR", "date must be YYYY-MM-DD", 400);
+  }
+  try {
+    const config = await readConfig();
+    const data = await getActivityDayDetail(config, date, {
+      accountIds: accountIds.length ? accountIds : undefined,
+    });
+    return c.json(data);
+  } catch (err: any) {
+    return errorResponse("ACTIVITY_DAY_ERROR", err.message, 500);
+  }
+});
+
+// POST /api/activity/refresh — bust cache (CSRF-guarded)
+app.post("/api/activity/refresh", async (c) => {
+  const csrf = sameOriginGuard(c);
+  if (csrf) return csrf;
+  clearActivityCache();
+  return c.json({ ok: true });
 });
 
 // GET /api/issues — read-only issue list across local remotes (GitHub + GitLab)
@@ -1296,6 +1347,14 @@ app.get("*", () => serveFile(join(PUBLIC_DIR, "app.html"), "text/html"));
 // Start server
 const config = await readConfig();
 const PORT = config.port ?? 7777;
+// Env wins for ops overrides: BIND_HOST=127.0.0.1 or 0.0.0.0
+const envBind = process.env.BIND_HOST?.trim();
+const BIND_HOST: BindHost =
+  envBind === "127.0.0.1" || envBind === "0.0.0.0"
+    ? envBind
+    : config.bindHost === "127.0.0.1"
+      ? "127.0.0.1"
+      : "0.0.0.0";
 
 // Startup auto-update: if enabled and a newer release is available, pull and restart.
 // We exit the process on a successful pull and rely on launchd KeepAlive=true to bring
@@ -1324,7 +1383,7 @@ try {
   server = Bun.serve({
     fetch: app.fetch,
     port: PORT,
-    hostname: "127.0.0.1",
+    hostname: BIND_HOST,
     // Mergeable / multi-account notification scans can exceed Bun's default 10s idle cap
     idleTimeout: 120,
     error(_error: Error) {
@@ -1339,4 +1398,11 @@ try {
   throw err;
 }
 
-console.log(`Feedback Tool running at http://127.0.0.1:${PORT}`);
+const listenUrls = formatListenUrls(BIND_HOST, PORT);
+console.log(`Git Glass listening on ${BIND_HOST}:${PORT}`);
+for (const url of listenUrls) {
+  console.log(`  → ${url}`);
+}
+if (BIND_HOST === "0.0.0.0") {
+  console.log("  (LAN: no auth — trusted networks only)");
+}

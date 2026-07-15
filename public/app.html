@@ -108,6 +108,7 @@
       outline-offset: -2px;
     }
 
+    #glass-feedback-btn,
     #glass-settings-btn {
       background: none;
       border: 1px solid transparent;
@@ -118,11 +119,73 @@
       display: flex;
       align-items: center;
       font-size: 18px;
-      margin-left: auto;
       transition: color 0.15s, border-color 0.15s;
     }
+    #glass-feedback-btn:hover,
     #glass-settings-btn:hover { color: var(--text); border-color: var(--border); }
+    #glass-feedback-btn:focus,
     #glass-settings-btn:focus { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+    #glass-feedback-btn { margin-left: auto; }
+    #glass-settings-btn { margin-left: 4px; }
+
+
+    /* ── Feedback modal (global) ─────────────────────────────────────────── */
+    #feedback-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 210;
+      background: rgba(0,0,0,0.55);
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px 16px 24px;
+      overflow-y: auto;
+    }
+    #feedback-modal-overlay.open { display: flex; }
+    #feedback-modal {
+      width: min(640px, 100%);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+      max-height: calc(100vh - 72px);
+      overflow-y: auto;
+      position: relative;
+    }
+    #feedback-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      z-index: 1;
+    }
+    #feedback-modal-header h2 {
+      font-size: 16px;
+      margin: 0;
+      font-weight: 600;
+    }
+    #feedback-modal-context {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    #feedback-modal-context[hidden] { display: none; }
+    #feedback-modal-body {
+      padding: 0;
+    }
+    #feedback-modal-body > main {
+      padding: 16px !important;
+      max-width: none !important;
+      margin: 0 !important;
+    }
+    #feedback-modal-body #offline-banner,
+    #feedback-modal-body #install-prompt { display: none !important; }
 
     /* ── Existing feedback-view styles ───────────────────────────────────── */
 
@@ -1689,6 +1752,192 @@
       flex-shrink: 0;
     }
 
+
+    /* ── Activity tab ────────────────────────────────────────────────────── */
+    #view-activity {
+      padding: 68px 20px 32px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .glass-activity-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px 16px;
+      margin-bottom: 12px;
+    }
+    .glass-activity-title { font-size: 18px; font-weight: 600; margin: 0; }
+    .glass-activity-hint { font-size: 13px; color: var(--muted); }
+    .glass-activity-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .glass-activity-window {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .glass-activity-window[aria-pressed="true"],
+    .glass-activity-window--active {
+      color: var(--text);
+      border-color: var(--accent-green);
+      background: rgba(0,166,74,0.08);
+    }
+    .glass-activity-accounts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .glass-activity-chip {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .glass-activity-chip[aria-pressed="true"] {
+      color: var(--text);
+      border-color: var(--accent-green);
+      background: rgba(0,166,74,0.1);
+    }
+    .glass-activity-chip[data-error="true"] {
+      border-color: var(--error);
+      color: var(--error);
+    }
+    .glass-activity-totals {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .glass-activity-stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .glass-activity-stat-val {
+      font-size: 22px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .glass-activity-stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .glass-activity-breakdown {
+      display: flex;
+      height: 12px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--hover-overlay);
+      margin-bottom: 20px;
+    }
+    .glass-activity-breakdown span { display: block; height: 100%; min-width: 0; }
+    .glass-activity-breakdown .b-commits { background: #26a641; }
+    .glass-activity-breakdown .b-prs { background: #1f6feb; }
+    .glass-activity-breakdown .b-issues { background: #d29922; }
+    .glass-activity-breakdown .b-reviews { background: #a371f7; }
+    .glass-heatmap {
+      display: flex;
+      gap: 3px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .glass-heatmap-week {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .glass-heatmap-day {
+      width: 11px;
+      height: 11px;
+      border-radius: 2px;
+      background: var(--hover-overlay);
+      border: none;
+      padding: 0;
+      cursor: pointer;
+    }
+    .glass-heatmap-day:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 1px;
+    }
+    .glass-heatmap-day[data-level="1"] { background: rgba(38,166,65,0.25); }
+    .glass-heatmap-day[data-level="2"] { background: rgba(38,166,65,0.45); }
+    .glass-heatmap-day[data-level="3"] { background: rgba(38,166,65,0.7); }
+    .glass-heatmap-day[data-level="4"] { background: #26a641; }
+    .glass-activity-meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .glass-activity-disclaimer {
+      font-size: 12px;
+      color: var(--muted);
+      border-left: 3px solid var(--border);
+      padding-left: 10px;
+      margin-bottom: 16px;
+    }
+    #glass-activity-drawer {
+      position: fixed;
+      top: 48px;
+      right: 0;
+      bottom: 0;
+      width: min(400px, 100vw);
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      z-index: 150;
+      transform: translateX(100%);
+      transition: transform 0.2s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    #glass-activity-drawer.open { transform: translateX(0); }
+    .glass-activity-drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .glass-activity-drawer-body {
+      overflow-y: auto;
+      padding: 12px 16px 24px;
+      flex: 1;
+    }
+    .glass-activity-event {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 0;
+      font-size: 13px;
+    }
+    .glass-activity-event a { color: var(--accent-blue, #58a6ff); text-decoration: none; }
+    .glass-activity-event a:hover { text-decoration: underline; }
+    .glass-activity-event-meta { color: var(--muted); font-size: 11px; margin-top: 4px; }
+    .glass-activity-event-type {
+      display: inline-block;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--hover-overlay);
+      margin-right: 6px;
+    }
+
     /* Each leaderboard row */
     .glass-leaderboard-row {
       display: grid;
@@ -1716,6 +1965,16 @@
       color: var(--accent-green);
     }
 
+    .glass-leaderboard-remote {
+      display: block;
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--muted);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .glass-leaderboard-name {
       font-size: 13px;
       font-weight: 600;
@@ -1867,6 +2126,20 @@
       aria-controls="view-leaderboard"
       tabindex="-1"
     >Leaderboard</button>
+    <button
+      id="glass-tab-activity"
+      class="glass-tab"
+      role="tab"
+      aria-selected="false"
+      aria-controls="view-activity"
+      tabindex="-1"
+    >Activity</button>
+
+    <button class="icon-btn" id="glass-feedback-btn" title="Feedback (⌘⇧F)" aria-label="Open feedback">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path d="M2.678 11.894a1 1 0 0 1 .287.801 10.97 10.97 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8.06 8.06 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894zm-.493 3.905a21.682 21.682 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a9.68 9.68 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9.06 9.06 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105z"/>
+      </svg>
+    </button>
     <button class="icon-btn" id="glass-settings-btn" title="Settings" aria-label="Open settings">
       <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
         <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
@@ -1953,119 +2226,6 @@
       <div id="status-panel"></div>
     </main>
 
-    <!-- Config overlay -->
-    <div id="config-overlay" role="dialog" aria-modal="true" aria-label="Settings">
-      <div id="config-backdrop"></div>
-      <div id="config-panel">
-        <h2>
-          Settings
-          <button class="icon-btn" id="close-config-btn" title="Close" aria-label="Close settings">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854z"/>
-            </svg>
-          </button>
-        </h2>
-
-        <div class="config-section">
-          <h3>Scan Paths</h3>
-          <div id="scan-paths-list"></div>
-          <button id="add-scan-path">+ Add path</button>
-        </div>
-
-        <div class="config-section">
-          <h3>Scan Depth</h3>
-          <input type="text" id="config-depth" placeholder="3" />
-        </div>
-
-        <div class="config-section">
-          <h3>AI Provider</h3>
-          <select id="config-ai-provider">
-            <option value="github-copilot">GitHub Copilot</option>
-            <option value="anthropic">Claude (Anthropic)</option>
-            <option value="openai">OpenAI</option>
-            <option value="grok">Grok (xAI)</option>
-            <option value="openai-compatible">OpenAI-compatible (custom)</option>
-            <option value="local">Local (Ollama / LM Studio)</option>
-          </select>
-        </div>
-
-        <div class="config-section" id="config-copilot-section">
-          <h3>GitHub Copilot Account</h3>
-          <select id="config-copilot-account">
-            <option value="">— select account —</option>
-          </select>
-          <p class="config-hint">Account with GitHub Copilot access, used for AI triage</p>
-        </div>
-
-        <div class="config-section" id="config-ai-key-section" hidden>
-          <h3>AI API Key</h3>
-          <input type="password" id="config-ai-key" placeholder="sk-…" autocomplete="off" />
-          <p class="config-hint" id="config-ai-key-hint"></p>
-        </div>
-
-        <div class="config-section" id="config-ai-model-section" hidden>
-          <h3>AI Model <span id="config-ai-model-default" style="font-weight:normal;opacity:.6;font-size:.85em;"></span></h3>
-          <input type="text" id="config-ai-model" placeholder="(uses provider default)" />
-        </div>
-
-        <div class="config-section" id="config-ai-url-section" hidden>
-          <h3>AI Base URL</h3>
-          <input type="text" id="config-ai-url" placeholder="http://localhost:11434/v1" />
-        </div>
-
-        <div class="config-section">
-          <h3>Default Issue Account</h3>
-          <select id="config-default-account">
-            <option value="">— select account —</option>
-          </select>
-          <p class="config-hint">Used when no per-org override matches the repo</p>
-        </div>
-
-        <div class="config-section">
-          <h3>Per-Org Account Overrides</h3>
-          <p class="config-hint" style="margin-bottom:8px;">Map a GitHub org or username to a specific account (e.g. "veeam" → "v-AdamC")</p>
-          <div id="owner-accounts-list"></div>
-          <button id="add-owner-account">+ Add mapping</button>
-        </div>
-
-        <div class="config-section">
-          <h3>GitLab Tokens</h3>
-          <p class="config-hint" style="margin-bottom:8px;">Personal Access Token (scope: <code>api</code>) per GitLab host. Leave blank and Save to remove.</p>
-          <div id="gitlab-tokens-list"></div>
-          <button id="add-gitlab-token">+ Add token</button>
-        </div>
-
-        <div class="config-section" id="config-learning-section">
-          <h3>Learned Routing</h3>
-          <p class="config-hint" style="margin-bottom:8px;">Feedback-to-repo examples Git Glass learned from your submissions. Delete any that are wrong.</p>
-          <div id="learning-list"></div>
-          <button id="learning-clear-btn" class="btn" style="margin-top:8px;width:fit-content;display:none;">Clear all</button>
-        </div>
-
-        <div class="config-section" id="config-updates-section">
-          <h3>Updates</h3>
-          <div style="font-size:13px;margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap;">
-            <span id="config-version-current" style="color:var(--muted);">Checking…</span>
-            <span id="config-version-status"></span>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-            <button id="config-check-updates-btn" class="btn" style="width:fit-content;">Check for Updates</button>
-            <button id="config-update-now-btn" class="btn btn-green" style="width:fit-content;display:none;">Update &amp; Restart</button>
-            <button id="config-restart-apply-btn" class="btn btn-green" style="width:fit-content;display:none;">Restart to apply update</button>
-          </div>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
-            <input type="checkbox" id="config-auto-update" />
-            Auto-update on startup
-          </label>
-          <p class="config-hint">Pulls the latest release and restarts when a newer version is available</p>
-        </div>
-
-        <div class="btn-row">
-          <button class="btn btn-green" id="config-save-btn">Save</button>
-        </div>
-        <div id="config-save-status"></div>
-      </div>
-    </div>
   </div><!-- /#view-feedback -->
 
   <!-- ── Repos View ──────────────────────────────────────────────────────── -->
@@ -2366,6 +2526,180 @@
       <div class="glass-leaderboard-empty" id="glass-leaderboard-empty" hidden>No commits in this window.</div>
     </div>
   </section><!-- /#view-leaderboard -->
+
+
+  <!-- ── Activity View ──────────────────────────────────────────────────── -->
+  <section id="view-activity" role="tabpanel" aria-labelledby="glass-tab-activity" hidden>
+    <header class="glass-activity-header">
+      <h2 class="glass-activity-title">Activity</h2>
+      <span class="glass-activity-hint">Unified contributions across accounts</span>
+    </header>
+    <div class="glass-activity-toolbar" role="toolbar" aria-label="Time window">
+      <button class="glass-activity-window" data-window="7d" aria-pressed="false">7d</button>
+      <button class="glass-activity-window" data-window="30d" aria-pressed="false">30d</button>
+      <button class="glass-activity-window" data-window="90d" aria-pressed="false">90d</button>
+      <button class="glass-activity-window" data-window="1y" aria-pressed="true">1y</button>
+      <button class="glass-toolbar-btn" id="glass-activity-refresh" title="Refresh">Refresh</button>
+    </div>
+    <div class="glass-activity-accounts" id="glass-activity-accounts" aria-label="Accounts"></div>
+    <p class="glass-activity-disclaimer" id="glass-activity-disclaimer">
+      Host graphs only. Private repos and missing tokens undercount. Soft-fail per account.
+    </p>
+    <div class="glass-activity-totals" id="glass-activity-totals"></div>
+    <div class="glass-activity-breakdown" id="glass-activity-breakdown" aria-hidden="true"></div>
+    <div class="glass-heatmap" id="glass-activity-heatmap" role="grid" aria-label="Contribution heatmap"></div>
+    <div class="glass-activity-meta" id="glass-activity-meta"></div>
+    <div id="glass-activity-loading" hidden role="status">Loading activity…</div>
+    <div id="glass-activity-empty" hidden>No contribution data for selected accounts.</div>
+  </section>
+
+  <aside id="glass-activity-drawer" aria-label="Day activity" hidden>
+    <div class="glass-activity-drawer-head">
+      <strong id="glass-activity-drawer-title">Day</strong>
+      <button class="icon-btn" id="glass-activity-drawer-close" aria-label="Close day drawer">×</button>
+    </div>
+    <div class="glass-activity-drawer-body" id="glass-activity-drawer-body"></div>
+  </aside>
+
+  <!-- Config overlay (global — must live outside tab panels so hidden views do not suppress it) -->
+    <!-- Config overlay -->
+    <div id="config-overlay" role="dialog" aria-modal="true" aria-label="Settings">
+      <div id="config-backdrop"></div>
+      <div id="config-panel">
+        <h2>
+          Settings
+          <button class="icon-btn" id="close-config-btn" title="Close" aria-label="Close settings">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854z"/>
+            </svg>
+          </button>
+        </h2>
+
+        <div class="config-section">
+          <h3>Scan Paths</h3>
+          <div id="scan-paths-list"></div>
+          <button id="add-scan-path">+ Add path</button>
+        </div>
+
+        <div class="config-section">
+          <h3>Scan Depth</h3>
+          <input type="text" id="config-depth" placeholder="3" />
+        </div>
+
+        <div class="config-section">
+          <h3>AI Provider</h3>
+          <select id="config-ai-provider">
+            <option value="github-copilot">GitHub Copilot</option>
+            <option value="anthropic">Claude (Anthropic)</option>
+            <option value="openai">OpenAI</option>
+            <option value="grok">Grok (xAI)</option>
+            <option value="openai-compatible">OpenAI-compatible (custom)</option>
+            <option value="local">Local (Ollama / LM Studio)</option>
+          </select>
+        </div>
+
+        <div class="config-section" id="config-copilot-section">
+          <h3>GitHub Copilot Account</h3>
+          <select id="config-copilot-account">
+            <option value="">— select account —</option>
+          </select>
+          <p class="config-hint">Account with GitHub Copilot access, used for AI triage</p>
+        </div>
+
+        <div class="config-section" id="config-ai-key-section" hidden>
+          <h3>AI API Key</h3>
+          <input type="password" id="config-ai-key" placeholder="sk-…" autocomplete="off" />
+          <p class="config-hint" id="config-ai-key-hint"></p>
+        </div>
+
+        <div class="config-section" id="config-ai-model-section" hidden>
+          <h3>AI Model <span id="config-ai-model-default" style="font-weight:normal;opacity:.6;font-size:.85em;"></span></h3>
+          <input type="text" id="config-ai-model" placeholder="(uses provider default)" />
+        </div>
+
+        <div class="config-section" id="config-ai-url-section" hidden>
+          <h3>AI Base URL</h3>
+          <input type="text" id="config-ai-url" placeholder="http://localhost:11434/v1" />
+        </div>
+
+        <div class="config-section">
+          <h3>Default Issue Account</h3>
+          <select id="config-default-account">
+            <option value="">— select account —</option>
+          </select>
+          <p class="config-hint">Used when no per-org override matches the repo</p>
+        </div>
+
+        <div class="config-section">
+          <h3>Per-Org Account Overrides</h3>
+          <p class="config-hint" style="margin-bottom:8px;">Map a GitHub org or username to a specific account (e.g. "veeam" → "v-AdamC")</p>
+          <div id="owner-accounts-list"></div>
+          <button id="add-owner-account">+ Add mapping</button>
+        </div>
+
+        <div class="config-section">
+          <h3>GitLab Tokens</h3>
+          <p class="config-hint" style="margin-bottom:8px;">Personal Access Token (scope: <code>api</code>) per GitLab host. Leave blank and Save to remove.</p>
+          <div id="gitlab-tokens-list"></div>
+          <button id="add-gitlab-token">+ Add token</button>
+        </div>
+
+        <div class="config-section" id="config-learning-section">
+          <h3>Learned Routing</h3>
+          <p class="config-hint" style="margin-bottom:8px;">Feedback-to-repo examples Git Glass learned from your submissions. Delete any that are wrong.</p>
+          <div id="learning-list"></div>
+          <button id="learning-clear-btn" class="btn" style="margin-top:8px;width:fit-content;display:none;">Clear all</button>
+        </div>
+
+        <div class="config-section" id="config-network-section">
+          <h3>Network</h3>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+            <input type="checkbox" id="config-bind-lan" />
+            Available on LAN
+          </label>
+          <p class="config-hint">Listen on all interfaces (<code>0.0.0.0</code>) so phones/tablets on your Wi‑Fi can open Glass. No login — use only on trusted networks. Restart after changing.</p>
+          <p class="config-hint" id="config-lan-urls" style="margin-top:6px;"></p>
+        </div>
+
+        <div class="config-section" id="config-updates-section">
+          <h3>Updates</h3>
+          <div style="font-size:13px;margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap;">
+            <span id="config-version-current" style="color:var(--muted);">Checking…</span>
+            <span id="config-version-status"></span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <button id="config-check-updates-btn" class="btn" style="width:fit-content;">Check for Updates</button>
+            <button id="config-update-now-btn" class="btn btn-green" style="width:fit-content;display:none;">Update &amp; Restart</button>
+            <button id="config-restart-apply-btn" class="btn btn-green" style="width:fit-content;display:none;">Restart to apply update</button>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+            <input type="checkbox" id="config-auto-update" />
+            Auto-update on startup
+          </label>
+          <p class="config-hint">Pulls the latest release and restarts when a newer version is available</p>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-green" id="config-save-btn">Save</button>
+        </div>
+        <div id="config-save-status"></div>
+      </div>
+    </div>
+
+
+  <!-- Feedback modal (global — reparents #view-feedback > main for full parity) -->
+  <div id="feedback-modal-overlay" role="dialog" aria-modal="true" aria-label="Feedback" hidden>
+    <div id="feedback-modal" tabindex="-1">
+      <div id="feedback-modal-header">
+        <h2>Feedback</h2>
+        <button class="icon-btn" id="feedback-modal-close" title="Close" aria-label="Close feedback">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854z"/></svg>
+        </button>
+      </div>
+      <div id="feedback-modal-context" hidden></div>
+      <div id="feedback-modal-body"></div>
+    </div>
+  </div>
 
   <!-- ── Global banner ──────────────────────────────────────────────────── -->
   <div id="glass-banner" role="status" aria-live="polite" aria-atomic="true" hidden></div>
@@ -3020,7 +3354,7 @@
       link.rel = 'noopener';
       box.append(strong, br, link);
       statusPanel.appendChild(box);
-      // Reset after 3 seconds
+      // Reset after 3 seconds; close modal if open (grill-me: short success flash then close)
       clearTimeout(successTimer);
       successTimer = setTimeout(() => {
         feedbackText.value = '';
@@ -3034,7 +3368,10 @@
         clearAiBadge();
         statusPanel.style.display = 'none';
         setState(STATES.IDLE);
-      }, 3000);
+        if (typeof glassCloseFeedbackModal === 'function' && feedbackModalOpen) {
+          glassCloseFeedbackModal({ force: true });
+        }
+      }, 2000);
     }
 
     function showError(message) {
@@ -3121,6 +3458,99 @@
     configBackdrop.addEventListener('click', closeConfig);
 
     document.getElementById('glass-settings-btn').addEventListener('click', openConfig);
+
+    // ── Feedback modal (dual-class: tab stays; ribbon opens modal from any view) ─
+    const feedbackModalOverlay = document.getElementById('feedback-modal-overlay');
+    const feedbackModalBody = document.getElementById('feedback-modal-body');
+    const feedbackModalContext = document.getElementById('feedback-modal-context');
+    const feedbackMainHome = document.querySelector('#view-feedback > main');
+    let feedbackModalOpen = false;
+    let feedbackModalReturnFocus = null;
+
+    function glassFeedbackContextLabel() {
+      // Read from tab chrome (this script cannot see later-script glassState).
+      const selected = document.querySelector('#glass-tabbar [role="tab"][aria-selected="true"]');
+      let name = (selected?.textContent || 'App').replace(/\s+\d+\s*$/, '').trim() || 'App';
+      // Inbox badge text can leave a trailing digit; strip non-letters leftovers
+      name = name.replace(/\d+/g, '').trim() || 'App';
+      return 'Context: ' + name;
+    }
+
+    function glassFeedbackIsDirty() {
+      const text = (feedbackText?.value || '').trim();
+      const title = (document.getElementById('issue-title')?.value || '').trim();
+      const body = (document.getElementById('issue-body')?.value || '').trim();
+      const hasImage = !!(document.getElementById('preview-img')?.src && document.getElementById('image-preview')?.style?.display !== 'none' && document.getElementById('image-preview') && !document.getElementById('image-preview').hidden);
+      // Also detect attached image via preview visibility
+      const preview = document.getElementById('image-preview');
+      const imageVisible = preview && getComputedStyle(preview).display !== 'none' && preview.querySelector('img')?.getAttribute('src');
+      return !!(text || title || body || imageVisible);
+    }
+
+    function glassOpenFeedbackModal() {
+      if (!feedbackModalOverlay || !feedbackMainHome || !feedbackModalBody) return;
+      if (feedbackModalOpen) {
+        document.getElementById('feedback-text')?.focus();
+        return;
+      }
+      feedbackModalReturnFocus = document.activeElement;
+      // Soft context only (grill-me #20)
+      if (feedbackModalContext) {
+        feedbackModalContext.textContent = glassFeedbackContextLabel();
+        feedbackModalContext.hidden = false;
+      }
+      // Reparent main form for full submit parity (shared DOM)
+      feedbackModalBody.appendChild(feedbackMainHome);
+      feedbackModalOverlay.hidden = false;
+      feedbackModalOverlay.classList.add('open');
+      feedbackModalOpen = true;
+      const ta = document.getElementById('feedback-text');
+      if (ta) {
+        glassAutoResize(ta);
+        ta.focus();
+      }
+    }
+
+    function glassCloseFeedbackModal(opts) {
+      if (!feedbackModalOpen) return;
+      const force = !!(opts && opts.force);
+      if (!force && glassFeedbackIsDirty()) {
+        if (!confirm('Discard feedback draft?')) return;
+      }
+      const home = document.getElementById('view-feedback');
+      if (home && feedbackMainHome) home.appendChild(feedbackMainHome);
+      feedbackModalOverlay.classList.remove('open');
+      feedbackModalOverlay.hidden = true;
+      feedbackModalOpen = false;
+      if (feedbackModalReturnFocus && feedbackModalReturnFocus.focus) {
+        try { feedbackModalReturnFocus.focus(); } catch (_) {}
+      }
+      feedbackModalReturnFocus = null;
+    }
+
+    document.getElementById('glass-feedback-btn')?.addEventListener('click', () => {
+      glassOpenFeedbackModal();
+    });
+    document.getElementById('feedback-modal-close')?.addEventListener('click', () => {
+      glassCloseFeedbackModal();
+    });
+    feedbackModalOverlay?.addEventListener('click', (e) => {
+      if (e.target === feedbackModalOverlay) glassCloseFeedbackModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      // ⌘⇧F / Ctrl+Shift+F — open feedback modal
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        glassOpenFeedbackModal();
+        return;
+      }
+      if (e.key === 'Escape' && feedbackModalOpen) {
+        // Let config overlay win if open
+        if (configOverlay?.classList.contains('open')) return;
+        e.preventDefault();
+        glassCloseFeedbackModal();
+      }
+    });
 
     // ── Learned routing panel ─────────────────────────────────────────────────
     const learningList = document.getElementById('learning-list');
@@ -3321,6 +3751,18 @@
 
       const autoUpdateEl = document.getElementById('config-auto-update');
       if (autoUpdateEl) autoUpdateEl.checked = !!(cfg.updates?.autoUpdate);
+
+      const bindLanEl = document.getElementById('config-bind-lan');
+      if (bindLanEl) bindLanEl.checked = (cfg.bindHost || '0.0.0.0') === '0.0.0.0';
+      const lanUrlsEl = document.getElementById('config-lan-urls');
+      if (lanUrlsEl) {
+        const port = cfg.port || 7777;
+        if ((cfg.bindHost || '0.0.0.0') === '0.0.0.0') {
+          lanUrlsEl.textContent = 'Open from other devices: http://<this-mac-lan-ip>:' + port + ' (see server log for exact IPs).';
+        } else {
+          lanUrlsEl.textContent = 'Loopback only (http://127.0.0.1:' + port + ').';
+        }
+      }
     }
 
     function addOwnerAccountRow(owner = '', account = '') {
@@ -3448,6 +3890,7 @@
       const updates = {
         scanPaths: paths,
         scanDepth: isNaN(depth) ? 3 : depth,
+        bindHost: document.getElementById('config-bind-lan')?.checked ? '0.0.0.0' : '127.0.0.1',
         ai: aiUpdate,
         github: {
           copilotAccount: configCopilotAccount.value || undefined,
@@ -3468,8 +3911,8 @@
           body: JSON.stringify(updates),
         });
         if (resp.ok) {
-          configSaveStatus.textContent = 'Saved';
-          setTimeout(() => { configSaveStatus.textContent = ''; }, 2000);
+          configSaveStatus.textContent = 'Saved — restart if you changed Network';
+          setTimeout(() => { configSaveStatus.textContent = ''; }, 3500);
           await loadRepos();
         } else {
           const data = await resp.json();
@@ -3578,6 +4021,15 @@
         sortKey: 'score',
         sortDir: 'desc',
       },
+      activity: {
+        window: '1y',
+        loaded: false,
+        loading: false,
+        data: null,
+        /** account ids enabled (empty = all without explicit opt-out store) */
+        enabledAccounts: null, // null → enable all on first load
+        selectedDay: null,
+      },
       deleteTarget: null,   // { path, name }
       commitTarget: null,   // { path, name }
     };
@@ -3594,24 +4046,29 @@
       const reposView = document.getElementById('view-repos');
       const issuesView = document.getElementById('view-issues');
       const leaderboardView = document.getElementById('view-leaderboard');
+      const activityView = document.getElementById('view-activity');
       const tabFeedback = document.getElementById('glass-tab-feedback');
       const tabRepos = document.getElementById('glass-tab-repos');
       const tabIssues = document.getElementById('glass-tab-issues');
       const tabLeaderboard = document.getElementById('glass-tab-leaderboard');
+      const tabActivity = document.getElementById('glass-tab-activity');
 
       feedbackView.hidden = v !== 'feedback';
       reposView.hidden = v !== 'repos';
       issuesView.hidden = v !== 'issues';
       leaderboardView.hidden = v !== 'leaderboard';
+      if (activityView) activityView.hidden = v !== 'activity';
 
-      tabFeedback.setAttribute('aria-selected', v === 'feedback' ? 'true' : 'false');
-      tabFeedback.setAttribute('tabindex', v === 'feedback' ? '0' : '-1');
-      tabRepos.setAttribute('aria-selected', v === 'repos' ? 'true' : 'false');
-      tabRepos.setAttribute('tabindex', v === 'repos' ? '0' : '-1');
-      tabIssues.setAttribute('aria-selected', v === 'issues' ? 'true' : 'false');
-      tabIssues.setAttribute('tabindex', v === 'issues' ? '0' : '-1');
-      tabLeaderboard.setAttribute('aria-selected', v === 'leaderboard' ? 'true' : 'false');
-      tabLeaderboard.setAttribute('tabindex', v === 'leaderboard' ? '0' : '-1');
+      const selectTab = (tab, on) => {
+        if (!tab) return;
+        tab.setAttribute('aria-selected', on ? 'true' : 'false');
+        tab.setAttribute('tabindex', on ? '0' : '-1');
+      };
+      selectTab(tabFeedback, v === 'feedback');
+      selectTab(tabRepos, v === 'repos');
+      selectTab(tabIssues, v === 'issues');
+      selectTab(tabLeaderboard, v === 'leaderboard');
+      selectTab(tabActivity, v === 'activity');
 
       if (v === 'repos') {
         glassStartAutoRefresh();
@@ -3635,6 +4092,12 @@
       } else {
         glassStopLeaderboardAutoRefresh();
       }
+
+      if (v === 'activity') {
+        if (!glassState.activity.loaded) glassLoadActivity();
+      } else {
+        glassCloseActivityDrawer();
+      }
     }
 
     // Tab click handlers
@@ -3642,29 +4105,31 @@
     document.getElementById('glass-tab-repos').addEventListener('click', () => setActiveView('repos'));
     document.getElementById('glass-tab-issues').addEventListener('click', () => setActiveView('issues'));
     document.getElementById('glass-tab-leaderboard').addEventListener('click', () => setActiveView('leaderboard'));
+    document.getElementById('glass-tab-activity')?.addEventListener('click', () => setActiveView('activity'));
 
     // Arrow key navigation on tab bar (roving tabindex)
     document.getElementById('glass-tabbar').addEventListener('keydown', (e) => {
-      const tabs = ['glass-tab-feedback', 'glass-tab-repos', 'glass-tab-issues', 'glass-tab-leaderboard'];
+      const tabs = ['glass-tab-feedback', 'glass-tab-repos', 'glass-tab-issues', 'glass-tab-leaderboard', 'glass-tab-activity'];
       const idx = tabs.indexOf(document.activeElement.id);
       if (idx === -1) return;
       if (e.key === 'ArrowRight') {
         const next = tabs[(idx + 1) % tabs.length];
-        document.getElementById(next).focus();
+        document.getElementById(next)?.focus();
         e.preventDefault();
       } else if (e.key === 'ArrowLeft') {
         const prev = tabs[(idx - 1 + tabs.length) % tabs.length];
-        document.getElementById(prev).focus();
+        document.getElementById(prev)?.focus();
         e.preventDefault();
       }
     });
 
-    // Cmd+1..4 global shortcuts
+    // Cmd+1..5 global shortcuts
     document.addEventListener('keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === '1') { e.preventDefault(); setActiveView('feedback'); }
       if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); setActiveView('repos'); }
       if ((e.metaKey || e.ctrlKey) && e.key === '3') { e.preventDefault(); setActiveView('issues'); }
       if ((e.metaKey || e.ctrlKey) && e.key === '4') { e.preventDefault(); setActiveView('leaderboard'); }
+      if ((e.metaKey || e.ctrlKey) && e.key === '5') { e.preventDefault(); setActiveView('activity'); }
     });
 
     // ── Banner ───────────────────────────────────────────────────────────────
@@ -3785,7 +4250,7 @@
 
         let inner = `
           <span class="${rankClass}">#${rank}</span>
-          <span class="glass-leaderboard-name" title="${escapeHtml(repo.path || '')}">${escapeHtml(repo.name)}</span>
+          <span class="glass-leaderboard-name" title="${escapeHtml(repo.path || '')}">${escapeHtml(repo.name)}${(repo.owner || repo.host) ? `<span class="glass-leaderboard-remote" title="${escapeHtml((repo.host || '') + '/' + (repo.owner || ''))}">${escapeHtml(repo.owner ? (repo.host && repo.host !== 'github.com' ? repo.host + '/' : '') + repo.owner : (repo.host || ''))}</span>` : ''}</span>
           <span class="glass-leaderboard-score" data-score="${score}">${score} pts</span>
           <span class="glass-leaderboard-commits">${repo.commits} commits</span>
           <span class="glass-leaderboard-lines">+${repo.additions} &minus;${repo.deletions}</span>
@@ -3868,6 +4333,227 @@
         if (!win || win === glassState.leaderboard.window) return;
         glassLoadLeaderboard(win);
       });
+    });
+
+    // ── Activity view (multi-account heatmap) ────────────────────────────────
+
+    function glassActivityLevel(count, max) {
+      if (!count) return 0;
+      if (max <= 1) return 4;
+      const t = count / max;
+      if (t > 0.75) return 4;
+      if (t > 0.5) return 3;
+      if (t > 0.25) return 2;
+      return 1;
+    }
+
+    function glassRenderActivity(data) {
+      const totalsEl = document.getElementById('glass-activity-totals');
+      const breakdownEl = document.getElementById('glass-activity-breakdown');
+      const heatmapEl = document.getElementById('glass-activity-heatmap');
+      const accountsEl = document.getElementById('glass-activity-accounts');
+      const metaEl = document.getElementById('glass-activity-meta');
+      const emptyEl = document.getElementById('glass-activity-empty');
+      const loadingEl = document.getElementById('glass-activity-loading');
+      if (loadingEl) loadingEl.hidden = true;
+
+      // Account chips
+      if (accountsEl) {
+        accountsEl.innerHTML = '';
+        const enabled = glassState.activity.enabledAccounts;
+        (data.accounts || []).forEach((acct) => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'glass-activity-chip';
+          chip.dataset.accountId = acct.id;
+          const on = !enabled || enabled.has(acct.id);
+          chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+          chip.textContent = acct.label + (acct.error ? ' ⚠' : '');
+          if (acct.error) {
+            chip.dataset.error = 'true';
+            chip.title = acct.error;
+          }
+          chip.addEventListener('click', () => {
+            const set = glassState.activity.enabledAccounts || new Set((data.accounts || []).map(a => a.id));
+            glassState.activity.enabledAccounts = set;
+            if (set.has(acct.id)) set.delete(acct.id);
+            else set.add(acct.id);
+            glassLoadActivity(undefined, { force: true });
+          });
+          accountsEl.appendChild(chip);
+        });
+      }
+
+      const t = data.totals || {};
+      if (totalsEl) {
+        const stats = [
+          ['Total', t.total || 0],
+          ['Commits', t.commits || 0],
+          ['PRs', t.pullRequests || 0],
+          ['Issues', t.issues || 0],
+          ['Reviews', t.reviews || 0],
+        ];
+        totalsEl.innerHTML = stats.map(([label, val]) =>
+          `<div class="glass-activity-stat"><div class="glass-activity-stat-val">${val}</div><div class="glass-activity-stat-label">${label}</div></div>`
+        ).join('');
+      }
+
+      const sumCat = (t.commits || 0) + (t.pullRequests || 0) + (t.issues || 0) + (t.reviews || 0);
+      if (breakdownEl) {
+        if (sumCat <= 0) {
+          breakdownEl.innerHTML = '';
+        } else {
+          const pct = (n) => Math.max(0, (n / sumCat) * 100);
+          breakdownEl.innerHTML =
+            `<span class="b-commits" style="width:${pct(t.commits || 0)}%" title="Commits"></span>` +
+            `<span class="b-prs" style="width:${pct(t.pullRequests || 0)}%" title="PRs"></span>` +
+            `<span class="b-issues" style="width:${pct(t.issues || 0)}%" title="Issues"></span>` +
+            `<span class="b-reviews" style="width:${pct(t.reviews || 0)}%" title="Reviews"></span>`;
+        }
+      }
+
+      const days = data.days || [];
+      if (emptyEl) emptyEl.hidden = days.some(d => d.count > 0);
+      if (heatmapEl) {
+        heatmapEl.innerHTML = '';
+        const max = days.reduce((m, d) => Math.max(m, d.count || 0), 0);
+        // Group into weeks (columns), starting from first day
+        let week = document.createElement('div');
+        week.className = 'glass-heatmap-week';
+        days.forEach((d, i) => {
+          // Align first week to weekday (0=Sun)
+          if (i === 0) {
+            const wd = new Date(d.date + 'T00:00:00Z').getUTCDay();
+            for (let pad = 0; pad < wd; pad++) {
+              const spacer = document.createElement('div');
+              spacer.style.width = '11px';
+              spacer.style.height = '11px';
+              week.appendChild(spacer);
+            }
+          }
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'glass-heatmap-day';
+          btn.dataset.date = d.date;
+          btn.dataset.level = String(glassActivityLevel(d.count || 0, max));
+          btn.title = `${d.date}: ${d.count || 0} contribution${(d.count || 0) === 1 ? '' : 's'}`;
+          btn.setAttribute('aria-label', btn.title);
+          btn.addEventListener('click', () => glassOpenActivityDay(d.date));
+          week.appendChild(btn);
+          const wd = new Date(d.date + 'T00:00:00Z').getUTCDay();
+          if (wd === 6) {
+            heatmapEl.appendChild(week);
+            week = document.createElement('div');
+            week.className = 'glass-heatmap-week';
+          }
+        });
+        if (week.childNodes.length) heatmapEl.appendChild(week);
+      }
+
+      if (metaEl) {
+        const gen = data.generatedAt ? new Date(data.generatedAt).toLocaleString() : '';
+        const errs = (data.accounts || []).filter(a => a.error).length;
+        metaEl.textContent = `Updated ${gen}` + (errs ? ` · ${errs} account error(s)` : '') +
+          ` · window ${data.window || glassState.activity.window} · cache ~${Math.round((data.cacheTtlSec || 900) / 60)}m`;
+      }
+
+      document.querySelectorAll('.glass-activity-window').forEach(btn => {
+        const pressed = btn.dataset.window === (data.window || glassState.activity.window);
+        btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+        btn.classList.toggle('glass-activity-window--active', pressed);
+      });
+    }
+
+    async function glassLoadActivity(forceWindow, opts) {
+      if (glassState.activity.loading) return;
+      const win = forceWindow || glassState.activity.window || '1y';
+      const force = !!(opts && opts.force);
+      glassState.activity.loading = true;
+      const loadingEl = document.getElementById('glass-activity-loading');
+      if (loadingEl) loadingEl.hidden = false;
+
+      let accountsParam = '';
+      if (glassState.activity.enabledAccounts && glassState.activity.enabledAccounts.size > 0) {
+        accountsParam = '&accounts=' + encodeURIComponent([...glassState.activity.enabledAccounts].join(','));
+      }
+      const url = `/api/activity?window=${encodeURIComponent(win)}${force ? '&force=1' : ''}${accountsParam}`;
+      try {
+        if (force) {
+          try { await glassApi('/api/activity/refresh', {}); } catch (_) {}
+        }
+        const data = await glassApi(url);
+        if (glassState.activity.enabledAccounts === null && data.accounts) {
+          glassState.activity.enabledAccounts = new Set(data.accounts.map(a => a.id));
+        }
+        glassState.activity.window = win;
+        glassState.activity.loaded = true;
+        glassState.activity.data = data;
+        glassRenderActivity(data);
+      } catch (e) {
+        if (loadingEl) loadingEl.hidden = true;
+        showGlassBanner('Activity failed: ' + e.message, 'error');
+      } finally {
+        glassState.activity.loading = false;
+      }
+    }
+
+    function glassCloseActivityDrawer() {
+      const drawer = document.getElementById('glass-activity-drawer');
+      if (!drawer) return;
+      drawer.classList.remove('open');
+      drawer.hidden = true;
+      glassState.activity.selectedDay = null;
+    }
+
+    async function glassOpenActivityDay(date) {
+      const drawer = document.getElementById('glass-activity-drawer');
+      const body = document.getElementById('glass-activity-drawer-body');
+      const title = document.getElementById('glass-activity-drawer-title');
+      if (!drawer || !body) return;
+      glassState.activity.selectedDay = date;
+      if (title) title.textContent = date;
+      body.innerHTML = '<p class="glass-activity-meta">Loading…</p>';
+      drawer.hidden = false;
+      drawer.classList.add('open');
+
+      let accountsParam = '';
+      if (glassState.activity.enabledAccounts && glassState.activity.enabledAccounts.size > 0) {
+        accountsParam = '&accounts=' + encodeURIComponent([...glassState.activity.enabledAccounts].join(','));
+      }
+      try {
+        const data = await glassApi(`/api/activity/day?date=${encodeURIComponent(date)}${accountsParam}`);
+        const events = data.events || [];
+        if (!events.length) {
+          body.innerHTML = '<p class="glass-activity-meta">No events listed for this day (private/host limits may apply).</p>';
+          return;
+        }
+        body.innerHTML = events.map(ev => {
+          const label = escapeHtml(ev.title || ev.type);
+          const link = ev.url
+            ? `<a href="${escapeHtml(ev.url)}" target="_blank" rel="noopener">${label}</a>`
+            : label;
+          return `<div class="glass-activity-event">
+            <span class="glass-activity-event-type">${escapeHtml(ev.type)}</span>${link}
+            <div class="glass-activity-event-meta">${escapeHtml(ev.accountId || '')}${ev.repo ? ' · ' + escapeHtml(ev.repo) : ''} · ${escapeHtml((ev.createdAt || '').slice(11, 16))}</div>
+          </div>`;
+        }).join('');
+      } catch (e) {
+        body.innerHTML = `<p class="glass-activity-meta">Failed: ${escapeHtml(e.message)}</p>`;
+      }
+    }
+
+    document.querySelectorAll('.glass-activity-window').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const win = btn.dataset.window;
+        if (!win) return;
+        glassLoadActivity(win, { force: false });
+      });
+    });
+    document.getElementById('glass-activity-refresh')?.addEventListener('click', () => {
+      glassLoadActivity(undefined, { force: true });
+    });
+    document.getElementById('glass-activity-drawer-close')?.addEventListener('click', () => {
+      glassCloseActivityDrawer();
     });
 
     // ── Inbox view ───────────────────────────────────────────────────────────
@@ -5756,7 +6442,7 @@
       const urlParams = new URLSearchParams(window.location.search);
       const urlView = urlParams.get('v');
       const stored = localStorage.getItem('glass.activeView');
-      const validViews = ['feedback', 'repos', 'issues', 'leaderboard'];
+      const validViews = ['feedback', 'repos', 'issues', 'leaderboard', 'activity'];
       const initialView = validViews.includes(urlView) ? urlView
         : validViews.includes(stored) ? stored
         : 'feedback';
