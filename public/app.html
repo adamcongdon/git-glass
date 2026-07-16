@@ -2334,24 +2334,6 @@
       </div>
     </div>
 
-    <!-- Update preview modal -->
-    <div class="glass-modal-overlay" id="glass-update-modal" role="dialog" aria-modal="true" aria-labelledby="glass-update-modal-title">
-      <div class="glass-modal" tabindex="-1">
-        <h2 id="glass-update-modal-title">Update Available</h2>
-        <div id="glass-update-version-row" style="display:flex;align-items:center;gap:12px;font-size:14px;margin-bottom:4px;">
-          <span id="glass-update-current" style="color:var(--muted);font-family:monospace;"></span>
-          <span style="color:var(--muted);">→</span>
-          <span id="glass-update-latest" style="color:var(--accent-green);font-weight:600;font-family:monospace;"></span>
-        </div>
-        <div id="glass-update-changelog" role="region" aria-label="Changelog" tabindex="0" style="max-height:200px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:13px;line-height:1.6;color:var(--text);margin:14px 0;white-space:pre-wrap;"></div>
-        <div id="glass-update-modal-error" hidden style="font-size:13px;color:var(--error);background:rgba(220,38,38,0.1);border:1px solid var(--error);border-radius:6px;padding:8px 12px;margin-bottom:12px;"></div>
-        <div class="glass-modal-actions">
-          <button id="glass-update-dismiss-btn" class="btn btn-ghost">Dismiss</button>
-          <button id="glass-update-confirm-btn" class="btn btn-green">Update &amp; Restart</button>
-        </div>
-      </div>
-    </div>
-
   </div><!-- /#view-repos -->
 
   <!-- ── Inbox View ─────────────────────────────────────────────────────── -->
@@ -2560,6 +2542,25 @@
     </div>
     <div class="glass-activity-drawer-body" id="glass-activity-drawer-body"></div>
   </aside>
+
+  <!-- Update preview modal (global — must live outside tab panels; triggered from the
+       Settings flyout, which is reachable from every tab, not just Repos) -->
+  <div class="glass-modal-overlay" id="glass-update-modal" role="dialog" aria-modal="true" aria-labelledby="glass-update-modal-title">
+    <div class="glass-modal" tabindex="-1">
+      <h2 id="glass-update-modal-title">Update Available</h2>
+      <div id="glass-update-version-row" style="display:flex;align-items:center;gap:12px;font-size:14px;margin-bottom:4px;">
+        <span id="glass-update-current" style="color:var(--muted);font-family:monospace;"></span>
+        <span style="color:var(--muted);">→</span>
+        <span id="glass-update-latest" style="color:var(--accent-green);font-weight:600;font-family:monospace;"></span>
+      </div>
+      <div id="glass-update-changelog" role="region" aria-label="Changelog" tabindex="0" style="max-height:200px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:13px;line-height:1.6;color:var(--text);margin:14px 0;white-space:pre-wrap;"></div>
+      <div id="glass-update-modal-error" hidden style="font-size:13px;color:var(--error);background:rgba(220,38,38,0.1);border:1px solid var(--error);border-radius:6px;padding:8px 12px;margin-bottom:12px;"></div>
+      <div class="glass-modal-actions">
+        <button id="glass-update-dismiss-btn" class="btn btn-ghost">Dismiss</button>
+        <button id="glass-update-confirm-btn" class="btn btn-green">Update &amp; Restart</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Config overlay (global — must live outside tab panels so hidden views do not suppress it) -->
     <!-- Config overlay -->
@@ -6009,7 +6010,16 @@
       errEl.textContent = '';
       try {
         console.log('[glass-update] POST /api/update …');
-        const data = await glassApi('/api/update', {});
+        // Not glassApi() — its generic soft-fail check only understands `data.message`,
+        // but /api/update's envelope reports failures via `data.output` (see index.ts).
+        // Going through glassApi would throw a generic "Request failed" and swallow the
+        // real reason before the data.output handling below ever runs.
+        const updateResp = await fetch('/api/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        });
+        const data = await updateResp.json();
         console.log('[glass-update] /api/update response:', data);
         if (!data || !data.ok) {
           console.warn('[glass-update] update reported not-ok — aborting restart:', data);
