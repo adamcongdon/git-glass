@@ -21,6 +21,19 @@ bun test -t "parseAheadBehind"         # single test name pattern
 
 Runtime is Bun (uses `Bun.spawn`, `Bun.serve`, `bun-types` in tsconfig). Don't introduce Node-only APIs without checking the Bun equivalent.
 
+## Shipping / PRs (issue auto-close)
+
+Feature and bugfix work ships via **PR → merge to `main`**, not a direct push of feature commits to `main`. GitHub auto-closes issues **only** when the PR body or a commit on the PR contains a closing keyword:
+
+```
+Closes #25
+Fixes #24
+```
+
+One line per issue. Use the PR template in [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md). Do not rely on title alone or on “this commit implements the feature” without keywords — that is why #18–#22 stayed open after v0.8.0.
+
+Release versioning still comes from Conventional Commit prefixes on `main` (`feat:` → minor, `fix:`/`perf:` → patch). Keep those on the merge commit / PR commits as usual.
+
 ## Architecture — single-process Hono server + static SPA
 
 This is a one-binary local web app. `index.ts` boots a Hono server bound to `127.0.0.1` that serves both a JSON API and a single static HTML file. There is **no build step** — `public/app.html` is hand-written HTML with two inline `<script>` blocks; the service worker handles offline caching.
