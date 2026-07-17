@@ -2,7 +2,21 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdir, writeFile, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { parseWindow, scoreActivity, getRepoActivity, getLeaderboard, slugifyPath, getClaudeCostMap } from "../lib/leaderboard";
+import {
+  parseWindow,
+  scoreActivity,
+  getRepoActivity,
+  getLeaderboard,
+  slugifyPath,
+  getClaudeCostMap,
+  getGrokCostMap,
+  estimateGrokCostCents,
+  pathMatchesRepo,
+  isUtcMonthToDate,
+  decodeSessionCwdDir,
+  grokSessionsRoot,
+  GROK_MODEL_RATES_USD_PER_MTOKEN,
+} from "../lib/leaderboard";
 
 // ─── parseWindow ────────────────────────────────────────────────────────────
 
@@ -131,6 +145,139 @@ describe("getClaudeCostMap", () => {
     const map = await getClaudeCostMap();
     expect(map["-Users-x-foo"]).toBe(175); // 1.5 + 0.25 → 175 cents
     expect(map["-Users-x-bar"]).toBeUndefined(); // outside MTD
+  });
+});
+
+// ─── Grok estimated cost ────────────────────────────────────────────────────
+
+describe("estimateGrokCostCents", () => {
+  test("returns 0 for non-positive tokens", () => {
+    expect(estimateGrokCostCents(0, "grok-4.5")).toBe(0);
+    expect(estimateGrokCostCents(-1, "grok-4.5")).toBe(0);
+  });
+
+  test("uses model rate table (1M tokens → rate × 100 cents)", () => {
+    const rate = GROK_MODEL_RATES_USD_PER_MTOKEN["grok-4.5"];
+    expect(estimateGrokCostCents(1_000_000, "grok-4.5")).toBe(Math.round(rate * 100));
+  });
+
+  test("falls back to default rate for unknown models", () => {
+    const rate = GROK_MODEL_RATES_USD_PER_MTOKEN.default;
+    expect(estimateGrokCostCents(1_000_000, "unknown-model")).toBe(Math.round(rate * 100));
+  });
+});
+
+describe("pathMatchesRepo", () => {
+  test("exact path match", () => {
+    expect(pathMatchesRepo("/opt/org/app", "/opt/org/app")).toBe(true);
+  });
+
+  test("session nested under repo matches", () => {
+    expect(pathMatchesRepo("/opt/org/app/packages/core", "/opt/org/app")).toBe(true);
+  });
+
+  test("parent cwd does not match child repo", () => {
+    expect(pathMatchesRepo("/opt/org", "/opt/org/app")).toBe(false);
+  });
+
+  test("unrelated paths do not match", () => {
+    expect(pathMatchesRepo("/opt/other", "/opt/org/app")).toBe(false);
+  });
+});
+
+describe("isUtcMonthToDate", () => {
+  const now = new Date("2026-07-17T12:00:00Z");
+
+  test("accepts timestamps in current UTC month", () => {
+    expect(isUtcMonthToDate("2026-07-01T00:00:00.000Z", now)).toBe(true);
+    expect(isUtcMonthToDate("2026-07-17T11:00:00.000Z", now)).toBe(true);
+  });
+
+  test("rejects prior months and empty", () => {
+    expect(isUtcMonthToDate("2026-06-30T23:59:59.000Z", now)).toBe(false);
+    expect(isUtcMonthToDate("", now)).toBe(false);
+  });
+});
+
+describe("decodeSessionCwdDir", () => {
+  test("decodes URL-encoded path segments", () => {
+    expect(decodeSessionCwdDir("%2Fopt%2Forg%2Fapp")).toBe("/opt/org/app");
+  });
+});
+
+describe("getGrokCostMap", () => {
+  let prevSessions: string | undefined;
+  let tmpSessions: string;
+  const repoPath = "/opt/org/git-glass";
+
+  beforeEach(async () => {
+    prevSessions = process.env.GLASS_GROK_SESSIONS;
+    tmpSessions = join(tmpdir(), `grok-sessions-${Date.now()}-${Math.random()}`);
+    process.env.GLASS_GROK_SESSIONS = tmpSessions;
+  });
+
+  afterEach(async () => {
+    if (prevSessions === undefined) delete process.env.GLASS_GROK_SESSIONS;
+    else process.env.GLASS_GROK_SESSIONS = prevSessions;
+    await rm(tmpSessions, { recursive: true, force: true });
+  });
+
+  test("returns empty when sessions root missing", async () => {
+    const map = await getGrokCostMap([repoPath]);
+    expect(map).toEqual({});
+  });
+
+  test("aggregates MTD estimated cents for matching git_root_dir", async () => {
+    const proj = encodeURIComponent(repoPath);
+    const sessionDir = join(tmpSessions, proj, "sess-1");
+    await mkdir(sessionDir, { recursive: true });
+    const thisMonth = new Date().toISOString();
+    await writeFile(
+      join(sessionDir, "summary.json"),
+      JSON.stringify({
+        git_root_dir: repoPath + "/",
+        last_active_at: thisMonth,
+        current_model_id: "grok-4.5",
+        info: { cwd: repoPath },
+      }),
+    );
+    await writeFile(
+      join(sessionDir, "signals.json"),
+      JSON.stringify({
+        contextTokensUsed: 1_000_000,
+        primaryModelId: "grok-4.5",
+      }),
+    );
+
+    const map = await getGrokCostMap([repoPath]);
+    const slug = slugifyPath(repoPath);
+    const expected = estimateGrokCostCents(1_000_000, "grok-4.5");
+    expect(map[slug]).toBe(expected);
+  });
+
+  test("ignores sessions outside MTD and unmatched paths", async () => {
+    const proj = encodeURIComponent("/opt/other");
+    const sessionDir = join(tmpSessions, proj, "old");
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(
+      join(sessionDir, "summary.json"),
+      JSON.stringify({
+        git_root_dir: "/opt/other",
+        last_active_at: "2020-01-01T00:00:00.000Z",
+        info: { cwd: "/opt/other" },
+      }),
+    );
+    await writeFile(
+      join(sessionDir, "signals.json"),
+      JSON.stringify({ contextTokensUsed: 9_000_000, primaryModelId: "grok-4.5" }),
+    );
+
+    const map = await getGrokCostMap([repoPath]);
+    expect(map).toEqual({});
+  });
+
+  test("grokSessionsRoot respects GLASS_GROK_SESSIONS override", () => {
+    expect(grokSessionsRoot()).toBe(tmpSessions.replace(/\/$/, ""));
   });
 });
 
@@ -454,6 +601,9 @@ describe("getLeaderboard integration", () => {
     expect(repo).toHaveProperty("owner");
     expect(repo).toHaveProperty("remoteUrl");
     expect(repo).toHaveProperty("claudeCostCents");
+    expect(repo).toHaveProperty("grokCostCents");
+    expect(repo).toHaveProperty("costCents");
+    expect(repo.costCents).toBe((repo.claudeCostCents || 0) + (repo.grokCostCents || 0));
   });
 
   test("repos are sorted by score descending", async () => {

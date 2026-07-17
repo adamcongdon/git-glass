@@ -4312,7 +4312,7 @@
       commits: (r) => r.commits,
       lines:   (r) => (r.additions || 0) + (r.deletions || 0),
       date:    (r) => r.lastCommitDate ? new Date(r.lastCommitDate).getTime() : 0,
-      cost:    (r) => r.claudeCostCents || 0,
+      cost:    (r) => (r.costCents != null ? r.costCents : ((r.claudeCostCents || 0) + (r.grokCostCents || 0))),
     };
 
     function glassSortLeaderboardRows(repos, key, dir) {
@@ -4364,9 +4364,13 @@
         const rankClass = rank <= 3 ? 'glass-leaderboard-rank glass-leaderboard-rank--top' : 'glass-leaderboard-rank';
         const score = Math.round(repo.score * 10) / 10;
         const relDate = glassLeaderboardRelativeDate(repo.lastCommitDate);
-        const cents = repo.claudeCostCents || 0;
+        const claudeCents = repo.claudeCostCents || 0;
+        const grokCents = repo.grokCostCents || 0;
+        const cents = repo.costCents != null ? repo.costCents : (claudeCents + grokCents);
         const costClass = cents > 0 ? 'glass-leaderboard-cost' : 'glass-leaderboard-cost glass-leaderboard-cost--zero';
         const costLabel = glassFormatUSD(cents);
+        const costTitle = 'MTD cost: Claude ' + glassFormatUSD(claudeCents) +
+          ' · Grok ~' + glassFormatUSD(grokCents) + ' (est., context proxy — not billing)';
 
         const row = document.createElement('div');
         row.className = 'glass-leaderboard-row';
@@ -4379,7 +4383,7 @@
           <span class="glass-leaderboard-commits">${repo.commits} commits</span>
           <span class="glass-leaderboard-lines">+${repo.additions} &minus;${repo.deletions}</span>
           <span class="glass-leaderboard-date" title="${escapeHtml(repo.lastCommitDate || '')}">${escapeHtml(relDate)}</span>
-          <span class="${costClass}" title="Claude API spend (month-to-date)">${costLabel}</span>
+          <span class="${costClass}" title="${escapeHtml(costTitle)}">${costLabel}</span>
         `;
         if (repo.error) {
           inner += `<span class="glass-leaderboard-error">${escapeHtml(repo.error)}</span>`;
