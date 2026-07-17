@@ -3978,6 +3978,8 @@
         filter: localStorage.getItem('glass.repos.filter') || 'all',
         autoRefreshSec: 0,
         loaded: false,
+        loading: false,
+        warmedAt: 0,
         aiAvailable: false,
       },
       issues: {
@@ -4012,7 +4014,7 @@
           selected: new Set(),
           focusIdx: 0,
         },
-        work: { sections: [], items: [] },
+        work: { sections: [], items: [], warmedAt: 0, warming: false },
         mergeable: { items: [], focusIdx: 0 },
         mergeTarget: null,
       },
@@ -4020,6 +4022,7 @@
         window: '30d',
         loaded: false,
         loading: false,
+        warmedAt: 0,
         data: null,
         sortKey: 'score',
         sortDir: 'desc',
@@ -4038,6 +4041,114 @@
     };
 
     let glassAutoRefreshTimer = null;
+
+    // ── Idle warm preload (#24) ───────────────────────────────────────────────
+    // After shell paint: serial, soft-fail, visible-only warm of Repos + Work +
+    // Leaderboard(30d) into SPA memory. Once per page load; visibility pauses.
+    const GLASS_WARM_STALE_MS = 60_000;
+    const glassWarm = {
+      started: false,
+      done: false,
+      running: false,
+      paused: false,
+      index: 0,
+      queue: ['repos', 'work', 'leaderboard'],
+    };
+
+    function glassWarmIsStale(ts) {
+      return !ts || (Date.now() - ts) > GLASS_WARM_STALE_MS;
+    }
+
+    function glassWarmHasWork() {
+      const w = glassState.issues.work;
+      return !!(w.warmedAt && ((w.items && w.items.length) || (w.sections && w.sections.length)));
+    }
+
+    async function glassWarmFetchWork() {
+      const w = glassState.issues.work;
+      if (w.warming) return;
+      if (w.warmedAt) return;
+      if (glassState.activeView === 'issues' && glassState.issues.mode === 'work' && glassState.issues.loading) {
+        return;
+      }
+      w.warming = true;
+      try {
+        const params = new URLSearchParams();
+        params.set('state', glassState.issues.state || 'open');
+        const data = await glassApi('/api/work?' + params.toString());
+        w.sections = data.sections || [];
+        w.items = data.items || [];
+        w.warmedAt = Date.now();
+        if (typeof data.hiddenCount === 'number') glassState.issues.hiddenCount = data.hiddenCount;
+        if (data.failures) glassState.issues.failures = data.failures;
+        if (glassState.activeView === 'issues' && glassState.issues.mode === 'work') {
+          glassIssuesRenderFailures(data.failures || []);
+          glassInboxSyncHiddenChrome();
+          glassRenderWork();
+          glassIssuesUpdateEmpty();
+        }
+      } catch (_) {
+        /* soft-fail warm */
+      } finally {
+        w.warming = false;
+      }
+    }
+
+    async function glassWarmOne(surface) {
+      if (document.visibilityState !== 'visible') return false;
+      try {
+        if (surface === 'repos') {
+          if (glassState.repos.loaded || glassState.repos.loading) return true;
+          if (glassState.activeView === 'repos') return true;
+          await glassLoadRepos({ silent: true });
+        } else if (surface === 'work') {
+          if (glassState.issues.work.warmedAt || glassState.issues.work.warming) return true;
+          if (glassState.activeView === 'issues' && glassState.issues.mode === 'work') return true;
+          await glassWarmFetchWork();
+        } else if (surface === 'leaderboard') {
+          if (glassState.leaderboard.loaded || glassState.leaderboard.loading) return true;
+          if (glassState.activeView === 'leaderboard') return true;
+          await glassLoadLeaderboard(undefined, { silent: true });
+        }
+      } catch (_) {
+        /* soft-fail each surface */
+      }
+      return true;
+    }
+
+    async function glassWarmPump() {
+      if (glassWarm.running || glassWarm.done) return;
+      glassWarm.running = true;
+      while (glassWarm.index < glassWarm.queue.length) {
+        if (document.visibilityState !== 'visible') {
+          glassWarm.paused = true;
+          glassWarm.running = false;
+          return;
+        }
+        glassWarm.paused = false;
+        const surface = glassWarm.queue[glassWarm.index];
+        glassWarm.index += 1;
+        await glassWarmOne(surface);
+      }
+      glassWarm.done = true;
+      glassWarm.running = false;
+    }
+
+    function glassScheduleWarm() {
+      if (glassWarm.started) return;
+      glassWarm.started = true;
+      const kick = () => { glassWarmPump(); };
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(kick, { timeout: 2000 });
+      } else {
+        setTimeout(kick, 1500);
+      }
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && glassWarm.paused && !glassWarm.done) {
+          glassWarmPump();
+        }
+      });
+    }
 
     // ── Tab switching ────────────────────────────────────────────────────────
 
@@ -4077,6 +4188,10 @@
         glassStartAutoRefresh();
         if (!glassState.repos.loaded) {
           glassLoadRepos();
+        } else if (glassWarmIsStale(glassState.repos.warmedAt)) {
+          glassLoadRepos({ silent: true });
+        } else {
+          glassRenderGrid();
         }
       } else {
         glassStopAutoRefresh();
@@ -4090,7 +4205,13 @@
       }
 
       if (v === 'leaderboard') {
-        if (!glassState.leaderboard.loaded) glassLoadLeaderboard();
+        if (!glassState.leaderboard.loaded) {
+          glassLoadLeaderboard();
+        } else if (glassWarmIsStale(glassState.leaderboard.warmedAt)) {
+          glassLoadLeaderboard(undefined, { silent: true });
+        } else if (glassState.leaderboard.data) {
+          glassRenderLeaderboard(glassState.leaderboard.data);
+        }
         glassStartLeaderboardAutoRefresh();
       } else {
         glassStopLeaderboardAutoRefresh();
@@ -4300,6 +4421,7 @@
         }
         glassState.leaderboard.window = win;
         glassState.leaderboard.loaded = true;
+        glassState.leaderboard.warmedAt = Date.now();
         glassState.leaderboard.data = data;
         glassRenderLeaderboard(data);
       } catch (e) {
@@ -5138,6 +5260,7 @@
       if (typeof data.hiddenCount === 'number') glassState.issues.hiddenCount = data.hiddenCount;
       glassState.issues.work.sections = data.sections || [];
       glassState.issues.work.items = data.items || [];
+      glassState.issues.work.warmedAt = Date.now();
       glassIssuesRenderFailures(data.failures || []);
       glassInboxSyncHiddenChrome();
       glassRenderWork();
@@ -5208,9 +5331,11 @@
       glassInboxSyncChrome();
       const loading = document.getElementById('glass-issues-loading');
       if (!opts.append) {
-        loading.hidden = false;
-        document.getElementById('glass-issues-empty').hidden = true;
-        if (!opts.silent) document.getElementById('glass-issues-rows').innerHTML = '';
+        if (!opts.silent) {
+          loading.hidden = false;
+          document.getElementById('glass-issues-empty').hidden = true;
+          document.getElementById('glass-issues-rows').innerHTML = '';
+        }
       }
       try {
         const mode = glassState.issues.mode;
@@ -5389,6 +5514,19 @@
         const mode = btn.dataset.mode;
         if (!mode || mode === glassState.issues.mode) return;
         glassState.issues.mode = mode;
+        // Work warm: paint immediately from SPA memory, silent revalidate if stale.
+        if (mode === 'work' && glassWarmHasWork()) {
+          glassState.issues.loaded = true;
+          glassInboxSyncChrome();
+          glassRenderWork();
+          glassIssuesUpdateEmpty();
+          const loadingEl = document.getElementById('glass-issues-loading');
+          if (loadingEl) loadingEl.hidden = true;
+          if (glassWarmIsStale(glassState.issues.work.warmedAt)) {
+            glassInboxLoad({ force: false, silent: true });
+          }
+          return;
+        }
         glassState.issues.loaded = false;
         glassInboxLoad({ force: false });
       });
@@ -5556,17 +5694,30 @@
 
     // ── Load & render repos ──────────────────────────────────────────────────
 
-    async function glassLoadRepos() {
+    async function glassLoadRepos(opts) {
+      opts = opts || {};
+      const silent = !!opts.silent;
       const grid = document.getElementById('glass-repos-grid');
-      grid.innerHTML = '<div class="glass-repos-empty"><span class="spinner" style="width:20px;height:20px;"></span> Scanning...</div>';
+      if (glassState.repos.loading) return;
+      glassState.repos.loading = true;
+      if (!silent) {
+        grid.innerHTML = '<div class="glass-repos-empty"><span class="spinner" style="width:20px;height:20px;"></span> Scanning...</div>';
+      }
       try {
         const items = await glassApi('/api/git/repos');
         glassState.repos.items = items;
         glassState.repos.loaded = true;
-        glassRenderGrid();
+        glassState.repos.warmedAt = Date.now();
+        if (glassState.activeView === 'repos') {
+          glassRenderGrid();
+        }
         await glassCheckAI();
       } catch (e) {
-        grid.innerHTML = `<div class="glass-repos-empty" style="color:var(--error)">Failed to load repos: ${escapeHtml(e.message)}</div>`;
+        if (!silent && glassState.activeView === 'repos') {
+          grid.innerHTML = `<div class="glass-repos-empty" style="color:var(--error)">Failed to load repos: ${escapeHtml(e.message)}</div>`;
+        }
+      } finally {
+        glassState.repos.loading = false;
       }
     }
 
@@ -6465,6 +6616,7 @@
       }
 
       setActiveView(initialView);
+      glassScheduleWarm();
     })();
   </script>
 </body>
