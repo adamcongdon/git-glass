@@ -15,9 +15,9 @@
  * Recency bonus rewards "still active" over "burst-and-stopped" (max 50pt).
  */
 
-import { readFile } from "fs/promises";
+import { readdir, readFile, stat } from "fs/promises";
 import { homedir } from "os";
-import { join } from "path";
+import { join, resolve, sep } from "path";
 import { runGit, getGitRepos, pMap } from "./gitStatus";
 import { parseRemoteUrl } from "./scanner";
 
@@ -46,6 +46,13 @@ export interface RepoLeaderboardEntry extends RepoActivityStats {
   score: number;
   /** Month-to-date Claude API spend in cents for this repo. 0 if absent. */
   claudeCostCents: number;
+  /**
+   * Month-to-date estimated Grok (local session) spend in cents.
+   * Proxy from context window tokens × rate table — not invoice-accurate.
+   */
+  grokCostCents: number;
+  /** claudeCostCents + grokCostCents (sort / single Cost column). */
+  costCents: number;
   /** Origin remote host (github.com, gitlab.example.com, …). Empty if no remote. */
   host: string;
   /** Origin remote owner/org/namespace. Empty if no remote. */
@@ -182,6 +189,168 @@ export async function getClaudeCostMap(): Promise<Record<string, number>> {
       }
     } catch {
       // missing / unreadable
+    }
+  }
+
+  return map;
+}
+
+// ─── Grok estimated cost (local sessions under GROK_HOME) ─────────────────────
+//
+// Enterprise-safe: no personal paths. Discovers sessions via:
+//   1. GLASS_GROK_SESSIONS (absolute sessions dir — tests / fleet override)
+//   2. GROK_HOME or GLASS_GROK_HOME + "/sessions"
+//   3. ~/.grok/sessions (platform default)
+// Soft-fails to empty map when the root is missing or unreadable.
+
+/** Estimated USD per 1M context-proxy tokens by model id (not billing rates). */
+export const GROK_MODEL_RATES_USD_PER_MTOKEN: Record<string, number> = {
+  "grok-4.5": 5,
+  "grok-4": 3,
+  "grok-3": 3,
+  "grok-2": 2,
+  default: 5,
+};
+
+/** Resolve the on-disk Grok sessions root, or null if unset/empty. */
+export function grokSessionsRoot(): string | null {
+  const override = process.env.GLASS_GROK_SESSIONS?.trim();
+  if (override) return override.replace(/\/$/, "");
+
+  const grokHome = (
+    process.env.GROK_HOME ||
+    process.env.GLASS_GROK_HOME ||
+    join(homedir(), ".grok")
+  ).replace(/\/$/, "");
+
+  if (!grokHome) return null;
+  return join(grokHome, "sessions");
+}
+
+/** Decode a URL-encoded session parent dir name into a cwd path. */
+export function decodeSessionCwdDir(dirName: string): string {
+  try {
+    return decodeURIComponent(dirName);
+  } catch {
+    return dirName;
+  }
+}
+
+/**
+ * Session path matches a scanned repo when equal or nested under the repo root.
+ * Parent-only cwds (e.g. org monorepo parent without git_root) do not match children.
+ */
+export function pathMatchesRepo(sessionPath: string, repoPath: string): boolean {
+  const s = resolve(sessionPath).replace(/[/\\]+$/, "");
+  const r = resolve(repoPath).replace(/[/\\]+$/, "");
+  if (!s || !r) return false;
+  return s === r || s.startsWith(r + sep);
+}
+
+/** True when ISO timestamp falls in the current UTC calendar month. */
+export function isUtcMonthToDate(iso: string, now: Date = new Date()): boolean {
+  if (!iso || typeof iso !== "string") return false;
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  return iso >= monthStart;
+}
+
+/**
+ * Estimate Grok spend in cents from a context-token proxy and model id.
+ * Returns 0 for non-positive / non-finite tokens.
+ */
+export function estimateGrokCostCents(tokens: number, modelId: string | undefined): number {
+  if (!Number.isFinite(tokens) || tokens <= 0) return 0;
+  const id = (modelId || "default").trim() || "default";
+  const rate =
+    GROK_MODEL_RATES_USD_PER_MTOKEN[id] ??
+    GROK_MODEL_RATES_USD_PER_MTOKEN[id.replace(/-\d{8,}$/, "")] ??
+    GROK_MODEL_RATES_USD_PER_MTOKEN.default;
+  const dollars = (tokens / 1_000_000) * rate;
+  return Math.max(0, Math.round(dollars * 100));
+}
+
+/**
+ * Month-to-date estimated Grok cost per project slug (same key as Claude costs).
+ * Only sessions whose git_root_dir (else cwd) equals/under a provided repo path count.
+ */
+export async function getGrokCostMap(repoPaths: string[]): Promise<Record<string, number>> {
+  const map: Record<string, number> = {};
+  const root = grokSessionsRoot();
+  if (!root || !repoPaths.length) return map;
+
+  const repos = repoPaths
+    .filter((p) => typeof p === "string" && p.length > 0)
+    .map((p) => ({ path: p, slug: slugifyPath(p) }));
+
+  let projectDirs: string[];
+  try {
+    projectDirs = await readdir(root);
+  } catch {
+    return map;
+  }
+
+  for (const proj of projectDirs) {
+    if (!proj || proj.startsWith(".")) continue;
+    const projDir = join(root, proj);
+    let sessionIds: string[];
+    try {
+      const st = await stat(projDir);
+      if (!st.isDirectory()) continue;
+      sessionIds = await readdir(projDir);
+    } catch {
+      continue;
+    }
+
+    for (const sid of sessionIds) {
+      if (!sid || sid.startsWith(".")) continue;
+      const sessionDir = join(projDir, sid);
+      try {
+        const [summaryRaw, signalsRaw] = await Promise.all([
+          readFile(join(sessionDir, "summary.json"), "utf8"),
+          readFile(join(sessionDir, "signals.json"), "utf8"),
+        ]);
+        const summary = JSON.parse(summaryRaw) as {
+          git_root_dir?: string;
+          last_active_at?: string;
+          updated_at?: string;
+          current_model_id?: string;
+          info?: { cwd?: string };
+        };
+        const signals = JSON.parse(signalsRaw) as {
+          contextTokensUsed?: number;
+          primaryModelId?: string;
+        };
+
+        const ts = summary.last_active_at || summary.updated_at || "";
+        if (!isUtcMonthToDate(ts)) continue;
+
+        const sessionPath =
+          (typeof summary.git_root_dir === "string" && summary.git_root_dir.trim()) ||
+          (typeof summary.info?.cwd === "string" && summary.info.cwd.trim()) ||
+          decodeSessionCwdDir(proj);
+
+        const tokens =
+          typeof signals.contextTokensUsed === "number" ? signals.contextTokensUsed : 0;
+        const model = signals.primaryModelId || summary.current_model_id || "default";
+        const cents = estimateGrokCostCents(tokens, model);
+        if (cents <= 0) continue;
+
+        // Prefer longest matching repo root (most specific) for nested paths.
+        let best: { path: string; slug: string } | null = null;
+        let bestLen = -1;
+        for (const repo of repos) {
+          if (!pathMatchesRepo(sessionPath, repo.path)) continue;
+          const len = resolve(repo.path).length;
+          if (len > bestLen) {
+            best = repo;
+            bestLen = len;
+          }
+        }
+        if (!best) continue;
+        map[best.slug] = (map[best.slug] ?? 0) + cents;
+      } catch {
+        // missing/malformed session — skip
+      }
     }
   }
 
@@ -361,15 +530,19 @@ export async function getLeaderboard(
       ? null
       : new Date(Date.now() - (days as number) * 86400000).toISOString();
 
-  const [repos, costMap] = await Promise.all([
-    getGitRepos(config.scanPaths, config.ignoredRepos),
+  const repos = await getGitRepos(config.scanPaths, config.ignoredRepos);
+  const [claudeMap, grokMap] = await Promise.all([
     getClaudeCostMap(),
+    getGrokCostMap(repos.map((r) => r.path)),
   ]);
 
   const entries = await pMap(
     repos,
     async (repo) => {
-      const claudeCostCents = costMap[slugifyPath(repo.path)] ?? 0;
+      const slug = slugifyPath(repo.path);
+      const claudeCostCents = claudeMap[slug] ?? 0;
+      const grokCostCents = grokMap[slug] ?? 0;
+      const costCents = claudeCostCents + grokCostCents;
       // Resolve origin so multi-host / multi-owner repos are visible (not just path name).
       const remoteUrl = await runGit(repo.path, ["remote", "get-url", "origin"]).catch(() => "");
       const parsed = remoteUrl ? parseRemoteUrl(remoteUrl) : null;
@@ -384,6 +557,8 @@ export async function getLeaderboard(
           ...stats,
           score,
           claudeCostCents,
+          grokCostCents,
+          costCents,
           host,
           owner,
           remoteUrl,
@@ -401,6 +576,8 @@ export async function getLeaderboard(
           lastCommitSha: "",
           score: 0,
           claudeCostCents,
+          grokCostCents,
+          costCents,
           host,
           owner,
           remoteUrl,
