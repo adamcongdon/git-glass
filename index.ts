@@ -54,7 +54,7 @@ import { sameOriginGuard as sameOriginGuardImpl } from "./lib/csrf";
 import { formatListenUrls } from "./lib/lan";
 import type { BindHost } from "./lib/config";
 
-const app = new Hono();
+export const app = new Hono();
 
 const PUBLIC_DIR = join(import.meta.dir, "public");
 
@@ -1344,65 +1344,67 @@ app.get("/icons/:file", (c) => {
 // All other routes serve app.html
 app.get("*", () => serveFile(join(PUBLIC_DIR, "app.html"), "text/html"));
 
-// Start server
-const config = await readConfig();
-const PORT = config.port ?? 7777;
-// Env wins for ops overrides: BIND_HOST=127.0.0.1 or 0.0.0.0
-const envBind = process.env.BIND_HOST?.trim();
-const BIND_HOST: BindHost =
-  envBind === "127.0.0.1" || envBind === "0.0.0.0"
-    ? envBind
-    : config.bindHost === "127.0.0.1"
-      ? "127.0.0.1"
-      : "0.0.0.0";
+if (import.meta.main) {
+  // Start server
+  const config = await readConfig();
+  const PORT = config.port ?? 7777;
+  // Env wins for ops overrides: BIND_HOST=127.0.0.1 or 0.0.0.0
+  const envBind = process.env.BIND_HOST?.trim();
+  const BIND_HOST: BindHost =
+    envBind === "127.0.0.1" || envBind === "0.0.0.0"
+      ? envBind
+      : config.bindHost === "127.0.0.1"
+        ? "127.0.0.1"
+        : "0.0.0.0";
 
-// Startup auto-update: if enabled and a newer release is available, pull and restart.
-// We exit the process on a successful pull and rely on launchd KeepAlive=true to bring
-// the server back on the new commit. On failure we log and continue with the current code.
-if (config.updates?.autoUpdate) {
-  try {
-    // Gate the fetch on a cheap cached version check so we don't hit the network
-    // on every launch when already current.
-    const vInfo = await getVersionInfo();
-    if (vInfo.updateAvailable) {
-      const result = await performSelfUpdate(SELF_REPO_DIR);
-      if (result.changed) {
-        console.log(`[auto-update] ${result.message} — restarting for new version.`);
-        process.exit(0); // launchd KeepAlive=true restarts the process on the new commit
-      } else if (result.status === "cannot-fast-forward" || result.status === "error") {
-        console.error(`[auto-update] ${result.message} — starting with current version.`);
+  // Startup auto-update: if enabled and a newer release is available, pull and restart.
+  // We exit the process on a successful pull and rely on launchd KeepAlive=true to bring
+  // the server back on the new commit. On failure we log and continue with the current code.
+  if (config.updates?.autoUpdate) {
+    try {
+      // Gate the fetch on a cheap cached version check so we don't hit the network
+      // on every launch when already current.
+      const vInfo = await getVersionInfo();
+      if (vInfo.updateAvailable) {
+        const result = await performSelfUpdate(SELF_REPO_DIR);
+        if (result.changed) {
+          console.log(`[auto-update] ${result.message} — restarting for new version.`);
+          process.exit(0); // launchd KeepAlive=true restarts the process on the new commit
+        } else if (result.status === "cannot-fast-forward" || result.status === "error") {
+          console.error(`[auto-update] ${result.message} — starting with current version.`);
+        }
       }
+    } catch (err: any) {
+      console.error("[auto-update] check failed:", err?.message ?? err);
     }
+  }
+
+  let server;
+  try {
+    server = Bun.serve({
+      fetch: app.fetch,
+      port: PORT,
+      hostname: BIND_HOST,
+      // Mergeable / multi-account notification scans can exceed Bun's default 10s idle cap
+      idleTimeout: 120,
+      error(_error: Error) {
+        return new Response("Internal Server Error", { status: 500 });
+      },
+    });
   } catch (err: any) {
-    console.error("[auto-update] check failed:", err?.message ?? err);
+    if (err.code === "EADDRINUSE") {
+      console.error(`Port ${PORT} is already in use. Run: kill $(lsof -ti :${PORT})`);
+      process.exit(1);
+    }
+    throw err;
   }
-}
 
-let server;
-try {
-  server = Bun.serve({
-    fetch: app.fetch,
-    port: PORT,
-    hostname: BIND_HOST,
-    // Mergeable / multi-account notification scans can exceed Bun's default 10s idle cap
-    idleTimeout: 120,
-    error(_error: Error) {
-      return new Response("Internal Server Error", { status: 500 });
-    },
-  });
-} catch (err: any) {
-  if (err.code === "EADDRINUSE") {
-    console.error(`Port ${PORT} is already in use. Run: kill $(lsof -ti :${PORT})`);
-    process.exit(1);
+  const listenUrls = formatListenUrls(BIND_HOST, PORT);
+  console.log(`Git Glass listening on ${BIND_HOST}:${PORT}`);
+  for (const url of listenUrls) {
+    console.log(`  → ${url}`);
   }
-  throw err;
-}
-
-const listenUrls = formatListenUrls(BIND_HOST, PORT);
-console.log(`Git Glass listening on ${BIND_HOST}:${PORT}`);
-for (const url of listenUrls) {
-  console.log(`  → ${url}`);
-}
-if (BIND_HOST === "0.0.0.0") {
-  console.log("  (LAN: no auth — trusted networks only)");
+  if (BIND_HOST === "0.0.0.0") {
+    console.log("  (LAN: no auth — trusted networks only)");
+  }
 }
