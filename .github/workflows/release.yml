@@ -41,20 +41,15 @@ jobs:
         if: steps.gate.outputs.all_passed == 'true'
         with:
           fetch-depth: 0
-          # Check out the branch tip (not the detached SHA) so the cosmetic
-          # package.json bump can be pushed back.
-          ref: ${{ github.event.workflow_run.head_branch }}
+          # Detached SHA that passed CI+CodeQL. Do not push commits back to
+          # main — the require-pr-and-test ruleset rejects direct pushes.
+          ref: ${{ github.event.workflow_run.head_sha }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Determine the release version automatically from Conventional Commit
-      # messages since the last tag — no manual package.json bump required.
-      #   <type>!:  / "BREAKING CHANGE"  -> major
-      #   feat:                          -> minor
-      #   fix: / perf:                   -> patch
-      #   only chore/docs/ci/etc.        -> no release
-      # The app reports its version via `git describe --tags` (lib/version.ts),
-      # so the git tag is the source of truth; package.json is kept in sync only
-      # for cosmetic/tooling consistency.
+      # Determine the release version from Conventional Commit messages since
+      # the last tag. The app reports version via `git describe --tags`
+      # (lib/version.ts); the git tag is the source of truth. package.json is
+      # not bumped here (a push to main would fail the branch ruleset).
       - name: Compute next version from commits
         if: steps.gate.outputs.all_passed == 'true'
         id: version
@@ -109,7 +104,7 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Tag, sync package.json, and create GitHub Release
+      - name: Tag and create GitHub Release
         if: steps.gate.outputs.all_passed == 'true' && steps.version.outputs.release == 'true' && steps.tag_check.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -117,20 +112,8 @@ jobs:
           set -euo pipefail
           NEXT="${{ steps.version.outputs.version }}"
 
-          # Keep package.json's version field in sync (cosmetic). [skip ci] stops
-          # this commit from re-triggering CI -> Release (no release loop).
-          jq ".version = \"${NEXT#v}\"" package.json > package.json.tmp
-          mv package.json.tmp package.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          if git diff --cached --quiet; then
-            echo "package.json already at ${NEXT#v}."
-          else
-            git commit -m "chore(release): $NEXT [skip ci]"
-            git push origin "HEAD:${{ github.event.workflow_run.head_branch }}"
-          fi
-
           git tag "$NEXT"
           git push origin "$NEXT"
           gh release create "$NEXT" --title "$NEXT" --generate-notes
