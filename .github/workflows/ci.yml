@@ -4,6 +4,7 @@ on:
   push:
     branches: [main, master, dev]
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [main, master, dev]
 
 jobs:
@@ -14,6 +15,9 @@ jobs:
       pull-requests: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Need enough history to diff against the PR base for ship-gate.
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -21,6 +25,24 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Ship gate
+        env:
+          SHIP_GATE_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          SHIP_GATE_HEAD: ${{ github.sha }}
+          SHIP_GATE_TITLE: ${{ github.event.pull_request.title || '' }}
+          SHIP_GATE_BODY: ${{ github.event.pull_request.body || '' }}
+        run: |
+          # Push to a new branch can have before=0000… — skip closes/cache vs empty.
+          if [ "${{ github.event_name }}" = "push" ] && echo "${{ github.event.before }}" | grep -qE '^0+$'; then
+            echo "ship-gate: initial push — skipped"
+            exit 0
+          fi
+          if [ -z "$SHIP_GATE_BASE" ] || [ "$SHIP_GATE_BASE" = "null" ]; then
+            echo "ship-gate: no base SHA — skipped"
+            exit 0
+          fi
+          bash scripts/ship-gate.sh
 
       - name: Type check
         run: bunx tsc --noEmit

@@ -15,6 +15,7 @@ bun run dev              # same, with --watch reload
 bun test                 # run all tests
 bun test tests/triage.test.ts          # single file
 bun test -t "parseAheadBehind"         # single test name pattern
+bash scripts/ship-gate.sh              # local ship checks (needs SHIP_GATE_BASE)
 ./install.sh             # install/refresh the macOS LaunchAgent (runs at login, KeepAlive=true)
 ./uninstall.sh           # remove the LaunchAgent (preserves config + logs)
 ```
@@ -23,26 +24,29 @@ Runtime is Bun (uses `Bun.spawn`, `Bun.serve`, `bun-types` in tsconfig). Don't i
 
 ## Shipping / PRs (issue auto-close)
 
-Feature and bugfix work ships via **PR → merge to `main`**, not a direct push of feature commits to `main`. GitHub auto-closes issues **only** when the PR body or a commit on the PR contains a closing keyword:
+Feature and bugfix work ships via **PR → merge to `main`**. The `require-pr-and-test` ruleset blocks direct pushes to `main`. GitHub auto-closes issues **only** when the PR body or a commit on the PR contains a closing keyword:
 
 ```
 Closes #25
 Fixes #24
 ```
 
-One line per issue. Use the PR template in [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md). Do not rely on title alone or on “this commit implements the feature” without keywords — that is why #18–#22 stayed open after v0.8.0.
+One line per issue. Use the PR template in [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md). For a `feat`/`fix`/`perf` PR with no issue, put `No issue` on its own line. CI's ship-gate fails PRs that leave the placeholder empty. Do not rely on title alone or on “this commit implements the feature” without keywords — that is why #18–#22 stayed open after v0.8.0.
 
-Release versioning still comes from Conventional Commit prefixes on `main` (`feat:` → minor, `fix:`/`perf:` → patch). Keep those on the merge commit / PR commits as usual.
+Release versioning still comes from Conventional Commit prefixes on `main` (`feat:` → minor, `fix:`/`perf:` → patch). Keep those on the merge commit / PR commits as usual. The release workflow tags only; it does not push a `package.json` bump to `main`.
 
 ## Architecture — single-process Hono server + static SPA
 
-This is a one-binary local web app. `index.ts` boots a Hono server bound to `127.0.0.1` that serves both a JSON API and a single static HTML file. There is **no build step** — `public/app.html` is hand-written HTML with two inline `<script>` blocks; the service worker handles offline caching.
+This is a one-binary local web app. `index.ts` boots a Hono server that serves both a JSON API and a single static HTML file. There is **no build step** — `public/app.html` is hand-written HTML with two inline `<script>` blocks; the service worker handles offline caching.
 
-Four views, all in [public/app.html](public/app.html):
+Default bind is `0.0.0.0` (`config.bindHost`). Set `127.0.0.1` for loopback-only. There is no auth. `sameOriginGuard` stops cross-site browser posts when Origin/Referer is present; missing both is treated as CLI and allowed. Treat LAN as a trusted network only.
+
+Five views, all in [public/app.html](public/app.html):
 - **Feedback** — paste text/screenshot → AI triages → opens a GitHub or GitLab issue.
 - **Repos** — depth-1 scan of `scanPaths`, shows status (branch / dirty / ahead-behind / stale), supports pull/push/open-in-VSCode/reveal/ignore/delete and AI commit message + AI triage.
 - **Inbox** — GitHub/GitLab attention surface (renamed from Issues). Modes: **Notifications** (GH notifs + GL todos; soft triage done/read/mute; bulk + keyboard) · **Work** (issues+PRs, reviews-first, local remotes, open on host) · **Mergeable** (ready PRs/MRs: checks+approved+not behind; confirm merge with live re-fetch) · **All local** · **This repo**. Backed by [lib/notifications.ts](lib/notifications.ts), [lib/work.ts](lib/work.ts), [lib/mergeable.ts](lib/mergeable.ts), [lib/issues.ts](lib/issues.ts).
 - **Leaderboard** — composite activity score across all scanned repos for a 7d/30d/90d/all window.
+- **Activity** — contribution heatmap / day drill-down across accounts. Backed by [lib/activity.ts](lib/activity.ts).
 
 Server-side responsibilities split across [lib/](lib/):
 - [lib/config.ts](lib/config.ts) — Zod-validated config persisted at `~/.config/feedback-tool/config.json` with 0600 perms via atomic tmp+rename. Module-level `_cache` is invalidated on write. `redactConfig()` strips GitLab tokens before returning over `/api/config`. `writeConfig()` merges deeply; for `gitlab.tokens`, an empty-string value **deletes** that host entry (no separate DELETE endpoint).
@@ -51,17 +55,17 @@ Server-side responsibilities split across [lib/](lib/):
 - [lib/gitOps.ts](lib/gitOps.ts) — repo mutations (pull/push/delete/openVSCode/revealInFinder). `deleteRepo` triple-validates: `validateRepoPath` → `lstat(resolved).isDirectory()` → `lstat(.git).isDirectory()`. Don't loosen these gates.
 - [lib/github.ts](lib/github.ts) / [lib/gitlab.ts](lib/gitlab.ts) — issue creation. GitHub additionally uploads an attached screenshot to `.github/issue-assets/` on `main` (then `master`) and embeds the resulting URL. 422 (missing label) is silently retried without labels.
 - [lib/gh.ts](lib/gh.ts) — shells out to `gh auth status` / `gh auth token -u <account>` to discover multi-account setups and fetch tokens on demand. Tokens are **not** persisted by Git Glass; the source of truth is the `gh` CLI keychain.
-- [lib/triage.ts](lib/triage.ts) — calls the **GitHub Copilot Chat API** (`api.githubcopilot.com/chat/completions`, model `claude-haiku-4.5`) with the user's gh token. Image attachments use OpenAI-style `image_url` content parts. The "suggested_repo" field is constrained to the list the client sent, with a server-side guard that coerces unknown values to `null`.
+- [lib/triage.ts](lib/triage.ts) — AI triage via the configured provider (default GitHub Copilot Chat API). Image attachments use OpenAI-style `image_url` content parts. The "suggested_repo" field is constrained to the list the client sent, with a server-side guard that coerces unknown values to `null`.
 - [lib/inference.ts](lib/inference.ts) — wraps `~/.claude/PAI/Tools/Inference.ts` for AI commit messages and AI repo triage. Returns a discriminated `{ status: "ok" | "unavailable" | "timeout" | "error" }`. When PAI isn't installed, callers must return HTTP 503, not crash. The PATH is augmented with `/opt/homebrew/bin:/usr/local/bin` because launchd starts the process with a minimal PATH.
 - [lib/leaderboard.ts](lib/leaderboard.ts) — scores each repo with `commits*10 + filesChanged*1 + (additions+deletions)*0.05 + 50*exp(-daysSinceLast/halfLife)`. Cached in-memory keyed by `${windowLabel}::${repoPath}::${HEAD_sha}`; the cheap `git rev-parse HEAD` precedes the expensive `git log --numstat`. Also reads month-to-date Claude API spend from `$PAI_DIR/MEMORY/STATE/usage-cache.json` keyed by `repoPath.replace(/[/.]/g, "-")`.
 - [lib/issues.ts](lib/issues.ts) — discovers local remotes, lists issues via GitHub Search (three queries: assignee/author/mentions `@me`) or per-repo list, and GitLab project/issues + assigned/created/todos. Identity from `ownerAccounts` → `defaultAccount` → `gh` / `gitlab.tokens[host]`. Soft-fails per source; 90s in-memory cache; paginate 50.
-- [lib/remoteUrl.ts](lib/remoteUrl.ts) — `remoteToWebUrl` converts a git remote (SSH/HTTPS/ssh://) to a browser URL. **This function is duplicated** verbatim in [public/app.html](public/app.html) as `glassRemoteToWebUrl` (line ~2636) because the SPA has no build step. Keep both in sync.
+- [lib/remoteUrl.ts](lib/remoteUrl.ts) — `remoteToWebUrl` converts a git remote (SSH/HTTPS/ssh://) to a browser URL. **This function is duplicated** in [public/app.html](public/app.html) as `glassRemoteToWebUrl` (search the symbol; line numbers drift) because the SPA has no build step. Keep both in sync. Production Browser button uses the HTML copy; unit tests cover only the TS copy.
 
 ## Auth model
 
 | Surface | Auth source |
 |---|---|
-| AI triage of pasted feedback | GitHub Copilot OAuth token from `config.github.copilotAccount` via `gh auth token -u …` |
+| AI triage of pasted feedback | Provider from Settings (`config.ai` / Copilot via `config.github.copilotAccount` → `gh auth token`) |
 | Creating GitHub issues | `config.github.ownerAccounts[owner]` → `config.github.defaultAccount` → `gh auth token -u …` |
 | Creating GitLab issues | `config.gitlab.tokens[host]` (per-host PAT with `api` scope) |
 | AI commit msg / AI repo triage | Shells out to `~/.claude/PAI/Tools/Inference.ts` — no token managed here |
@@ -70,14 +74,14 @@ GitLab tokens are persisted in `config.json` (mode 0600); GitHub tokens are not 
 
 ## Security model (don't regress these)
 
-The server binds to `127.0.0.1` only, but a malicious webpage in another tab can still make a cross-origin POST with `Content-Type: text/plain` (no preflight). Every mutating endpoint in [index.ts](index.ts) starts with:
+Default bind is all interfaces with no login. A malicious webpage in another tab can still make a cross-origin POST with `Content-Type: text/plain` (no preflight). Every mutating endpoint in [index.ts](index.ts) starts with:
 
 ```ts
 const csrf = sameOriginGuard(c);
 if (csrf) return csrf;
 ```
 
-`sameOriginGuard` rejects requests whose `Origin` or `Referer` points to a non-loopback hostname; missing both is treated as CLI usage and allowed. **Add this guard to every new mutating route.**
+`sameOriginGuard` rejects requests whose `Origin` or `Referer` host does not match the request `Host` (loopback aliases allowed). Missing both is treated as CLI usage and allowed. **Add this guard to every new mutating route.** `tests/mutatingRoutes.test.ts` fails if a POST/PUT/PATCH/DELETE handler returns before calling the guard.
 
 Other invariants:
 - All path-bearing request bodies go through `validateRepoPath()` (realpath + scanPaths containment + rejects `..`).
@@ -87,12 +91,16 @@ Other invariants:
 
 ## PWA + service worker
 
-[public/sw.js](public/sw.js) does cache-first for the app shell, network-only for `/api/*`. **Bump `CACHE_VERSION` (currently `'v10'`) on every change to [public/app.html](public/app.html)** — otherwise users get a stale shell on soft-refresh and won't see your UI changes. Static-asset routes in `index.ts` (`/manifest.json`, `/sw.js`, `/icons/:file`) are served explicitly above the catch-all `app.get("*")` that returns `app.html`; preserve that ordering.
+[public/sw.js](public/sw.js) does cache-first for non-API GETs, network-only for `/api/*`. **Bump `CACHE_VERSION` in `public/sw.js` on every change to any file under `public/` except `sw.js` itself** — otherwise installed PWAs keep a stale shell on soft-refresh. CI's ship-gate enforces this. Static-asset routes in `index.ts` (`/manifest.json`, `/sw.js`, `/icons/:file`) are served explicitly above the catch-all `app.get("*")` that returns `app.html`; preserve that ordering. The cache name prefix stays `feedback-tool-` so activate deletes old caches.
 
 ## Server self-management
 
-The dashboard updates itself in-place via `/api/update` (runs `git pull --ff-only` in its own checkout with a 30s timeout) and `/api/restart` (`process.exit(0)` after 300ms; launchd's `KeepAlive=true` brings it back). Don't add long-running async work without considering that the process can be killed at any time.
+The dashboard updates itself via `/api/update` (`performSelfUpdate` in [lib/version.ts](lib/version.ts): fetch tags, fast-forward to the latest GitHub release tag in `SELF_REPO_DIR`) and `/api/restart` (`process.exit(0)` after 300ms; launchd's `KeepAlive=true` brings it back). Don't add long-running async work without considering that the process can be killed at any time.
+
+## Historical docs (do not treat as current)
+
+`MEMORY/WORK/`, `Plans/`, and `ISA.md` are past task records. Cache versions, tab counts, and line numbers in those files are stale. Prefer this file, [FEATURE_MAP.md](FEATURE_MAP.md), and the code.
 
 ## Tests
 
-`bun test` runs all of [tests/](tests/). Tests are pure-function focused (parsers, validators, redactors, scoring math) — they exercise the lib modules directly without booting the server. When adding logic to a `lib/*.ts` file, prefer extracting the pure piece (parser, predicate, formula) and unit-testing it the same way the existing tests do.
+`bun test` runs all of [tests/](tests/). Tests are pure-function focused (parsers, validators, redactors, scoring math) — they exercise the lib modules directly without booting `Bun.serve`. Importing `index.ts` still runs `git rev-parse` for `BOOT_COMMIT`. When adding logic to a `lib/*.ts` file, prefer extracting the pure piece (parser, predicate, formula) and unit-testing it the same way the existing tests do.

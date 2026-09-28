@@ -11,6 +11,11 @@ commit on the PR) contains a closing keyword. Use one line per issue.
 Examples:
   Closes #25
   Fixes #24
+
+For a feat/fix/perf PR with no GitHub issue, put this on its own line:
+  No issue
+
+CI fails feat/fix/perf PRs that leave the placeholder below empty.
 -->
 
 Closes #
