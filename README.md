@@ -80,7 +80,7 @@ Configure via **Settings → AI Provider**. Supports six providers out of the bo
 | Provider | Key required | Default model | Notes |
 |---|---|---|---|
 | **GitHub Copilot** (default) | No | `claude-haiku-4.5` | Token fetched live from `gh auth token`. Requires a Copilot subscription. |
-| **Claude (Anthropic)** | Yes (`sk-ant-…`) | `claude-haiku-4-5-20251001` | Direct Anthropic Messages API. |
+| **Claude (Anthropic)** | Yes (`sk-ant-…`) | `claude-haiku-5-5` | Direct Anthropic Messages API. |
 | **OpenAI** | Yes (`sk-…`) | `gpt-4o-mini` | OpenAI chat completions. |
 | **Grok (xAI)** | Yes | `grok-3-mini-fast` | OpenAI-compatible endpoint at `api.x.ai`. |
 | **OpenAI-compatible** | Yes | _(set manually)_ | Custom base URL — works with Azure OpenAI, Together, Fireworks, etc. |

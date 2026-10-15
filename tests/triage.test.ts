@@ -333,3 +333,34 @@ describe("buildTriagePrompt — RepoCandidate list", () => {
     expect(emptyArg.user).toBe(noArg.user);
   });
 });
+
+describe("parseTriageResponse robustness", () => {
+  test("ignores prose around the JSON object", () => {
+    const raw = 'Here is the triage:\n{"title":"T","body":"B","type":"bug"}\nHope that helps.';
+    const result = parseTriageResponse(raw);
+    expect(result.title).toBe("T");
+    expect(result.body).toBe("B");
+    expect(result.type).toBe("bug");
+  });
+
+  test("salvages fields from a reply cut off mid-string", () => {
+    const raw = '{"title": "README lacks install instructions", "body": "Only Windows is documented.\\nAdd the rest.", "type": "feature", "priority": "P3-low", "component": "deployment", "root_cause": "", "suggested_fix": "Audit the supported platforms and add a';
+    const result = parseTriageResponse(raw, "orig");
+    expect(result.title).toBe("README lacks install instructions");
+    expect(result.body.startsWith("Only Windows is documented.\nAdd the rest.")).toBe(true);
+    expect(result.body).toContain("Original feedback");
+    expect(result.body).not.toContain('"title"');
+    expect(result.type).toBe("feature");
+    expect(result.priority).toBe("P3-low");
+    expect(result.component).toBe("deployment");
+    expect(result.suggestedFix).toBe("Audit the supported platforms and add a");
+    expect(result.effort).toBe("M");
+  });
+
+  test("salvages a reply cut off inside a unicode escape", () => {
+    const raw = '{"title": "Caf\\u00e9 bug", "body": "Broken \\u00';
+    const result = parseTriageResponse(raw);
+    expect(result.title).toBe("Café bug");
+    expect(result.body).toBe("Broken ");
+  });
+});
