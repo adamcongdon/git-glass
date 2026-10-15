@@ -33,11 +33,15 @@ export interface AiConfig {
   copilotToken?: string; // github-copilot: token from gh CLI
 }
 
+// Room for the full JSON reply. 500 was enough for older models but newer ones
+// write longer bodies and got cut off mid-object, which broke parsing.
+const TRIAGE_MAX_TOKENS = 2048;
+
 const VALID_TYPES: IssueType[] = ["bug", "feature", "question"];
 
 const DEFAULT_MODELS: Record<AiProvider, string> = {
   "github-copilot":    "claude-haiku-4.5",
-  "anthropic":         "claude-haiku-4-5-20251001",
+  "anthropic":         "claude-haiku-5-5",
   "openai":            "gpt-4o-mini",
   "grok":              "grok-3-mini-fast",
   "openai-compatible": "",
@@ -123,41 +127,83 @@ export function appendOriginalFeedback(body: string, original: string): string {
   return `${body}\n\n<details>\n<summary>Original feedback</summary>\n\n\`\`\`\n${escaped}\n\`\`\`\n\n</details>`;
 }
 
-export function parseTriageResponse(raw: string, originalText: string = ""): TriageResult {
+// Pull the JSON object out of a model reply: strips code fences and any prose
+// before the first "{" or after the last "}".
+function extractJsonObject(raw: string): unknown {
+  const cleaned = raw.replace(/^```(?:json)?\s*$/gim, "").trim();
   try {
-    const cleaned = raw.replace(/^```json?\n?|```$/gm, "").trim();
-    const parsed = JSON.parse(cleaned);
+    return JSON.parse(cleaned);
+  } catch {}
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end <= start) throw new Error("no JSON object");
+  return JSON.parse(cleaned.slice(start, end + 1));
+}
 
-    const title = typeof parsed.title === "string" ? parsed.title : "";
-    const parsedBody = typeof parsed.body === "string" ? parsed.body : raw;
-    const body = appendOriginalFeedback(parsedBody, originalText);
-    const typeRaw = parsed.type;
-    const type: IssueType = VALID_TYPES.includes(typeRaw) ? typeRaw : "question";
-    const suggestedRepo = typeof parsed.suggested_repo === "string" ? parsed.suggested_repo : null;
+const SALVAGE_KEYS = [
+  "title", "body", "type", "priority", "component", "priority_rationale",
+  "root_cause", "suggested_fix", "effort", "suggested_repo",
+] as const;
 
-    const priorityRaw = parsed.priority;
-    const priority: Priority = (VALID_PRIORITIES as readonly string[]).includes(priorityRaw)
-      ? priorityRaw as Priority
-      : "P2-medium";
-
-    const componentRaw = parsed.component;
-    const component: Component = (VALID_COMPONENTS as readonly string[]).includes(componentRaw)
-      ? componentRaw as Component
-      : "general";
-
-    const effortRaw = parsed.effort;
-    const effort: Effort = (VALID_EFFORTS as readonly string[]).includes(effortRaw)
-      ? effortRaw as Effort
-      : "M";
-
-    const priorityRationale = typeof parsed.priority_rationale === "string" ? parsed.priority_rationale : "";
-    const rootCause = typeof parsed.root_cause === "string" ? parsed.root_cause : "";
-    const suggestedFix = typeof parsed.suggested_fix === "string" ? parsed.suggested_fix : "";
-
-    return { title, body, type, suggestedRepo, priority, component, priorityRationale, rootCause, suggestedFix, effort };
-  } catch {
-    return { title: "", body: appendOriginalFeedback(raw, originalText), type: "question", suggestedRepo: null, ...DEFAULT_TRIAGE_EXTRAS };
+// Recover string fields from a JSON reply that was cut off mid-object (e.g. the
+// model hit max_tokens). A field whose closing quote is missing keeps whatever
+// text arrived. Returns null when the reply doesn't look like our JSON at all.
+export function salvageTruncatedJson(raw: string): Record<string, string> | null {
+  if (!/"title"\s*:/.test(raw) && !/"body"\s*:/.test(raw)) return null;
+  const out: Record<string, string> = {};
+  for (const key of SALVAGE_KEYS) {
+    const m = raw.match(new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)("?)`));
+    if (!m) continue;
+    let value = m[1];
+    if (!m[2]) value = value.replace(/\\u[0-9a-fA-F]{0,3}$/, ""); // drop a cut-off \u escape
+    try {
+      out[key] = JSON.parse(`"${value}"`);
+    } catch {
+      out[key] = value;
+    }
   }
+  return out.title || out.body ? out : null;
+}
+
+export function parseTriageResponse(raw: string, originalText: string = ""): TriageResult {
+  let parsed: any;
+  try {
+    parsed = extractJsonObject(raw);
+    if (!parsed || typeof parsed !== "object") throw new Error("not an object");
+  } catch {
+    parsed = salvageTruncatedJson(raw);
+    if (!parsed) {
+      return { title: "", body: appendOriginalFeedback(raw, originalText), type: "question", suggestedRepo: null, ...DEFAULT_TRIAGE_EXTRAS };
+    }
+  }
+
+  const title = typeof parsed.title === "string" ? parsed.title : "";
+  const parsedBody = typeof parsed.body === "string" ? parsed.body : raw;
+  const body = appendOriginalFeedback(parsedBody, originalText);
+  const typeRaw = parsed.type;
+  const type: IssueType = VALID_TYPES.includes(typeRaw) ? typeRaw : "question";
+  const suggestedRepo = typeof parsed.suggested_repo === "string" ? parsed.suggested_repo : null;
+
+  const priorityRaw = parsed.priority;
+  const priority: Priority = (VALID_PRIORITIES as readonly string[]).includes(priorityRaw)
+    ? priorityRaw as Priority
+    : "P2-medium";
+
+  const componentRaw = parsed.component;
+  const component: Component = (VALID_COMPONENTS as readonly string[]).includes(componentRaw)
+    ? componentRaw as Component
+    : "general";
+
+  const effortRaw = parsed.effort;
+  const effort: Effort = (VALID_EFFORTS as readonly string[]).includes(effortRaw)
+    ? effortRaw as Effort
+    : "M";
+
+  const priorityRationale = typeof parsed.priority_rationale === "string" ? parsed.priority_rationale : "";
+  const rootCause = typeof parsed.root_cause === "string" ? parsed.root_cause : "";
+  const suggestedFix = typeof parsed.suggested_fix === "string" ? parsed.suggested_fix : "";
+
+  return { title, body, type, suggestedRepo, priority, component, priorityRationale, rootCause, suggestedFix, effort };
 }
 
 // OpenAI-compatible chat completions (Copilot, OpenAI, Grok, local, custom)
@@ -194,7 +240,7 @@ async function callOpenAiCompatible(
     headers,
     body: JSON.stringify({
       model,
-      max_tokens: rawBase64 ? 1024 : 500,
+      max_tokens: TRIAGE_MAX_TOKENS,
       messages: [
         { role: "system", content: system },
         { role: "user", content: userContent },
@@ -245,7 +291,7 @@ async function callAnthropic(
     },
     body: JSON.stringify({
       model,
-      max_tokens: rawBase64 ? 1024 : 500,
+      max_tokens: TRIAGE_MAX_TOKENS,
       system,
       messages: [{ role: "user", content: userContent }],
     }),
