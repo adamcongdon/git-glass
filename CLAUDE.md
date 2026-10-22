@@ -42,7 +42,7 @@ This is a one-binary local web app. `index.ts` boots a Hono server that serves b
 Default bind is `0.0.0.0` (`config.bindHost`). Set `127.0.0.1` for loopback-only. There is no auth. `sameOriginGuard` stops cross-site browser posts when Origin/Referer is present; missing both is treated as CLI and allowed. Treat LAN as a trusted network only.
 
 Five views, all in [public/app.html](public/app.html):
-- **Feedback** — paste text/screenshot → AI triages → opens a GitHub or GitLab issue.
+- **Feedback** — paste text/screenshot → AI triages → opens a GitHub or GitLab issue, or opens a prefilled Jira Create form for a `config.jira.targets` entry ([lib/jira.ts](lib/jira.ts)).
 - **Repos** — depth-1 scan of `scanPaths`, shows status (branch / dirty / ahead-behind / stale), supports pull/push/open-in-VSCode/reveal/ignore/delete and AI commit message + AI triage.
 - **Inbox** — GitHub/GitLab attention surface (renamed from Issues). Modes: **Notifications** (GH notifs + GL todos; soft triage done/read/mute; bulk + keyboard) · **Work** (issues+PRs, reviews-first, local remotes, open on host) · **Mergeable** (ready PRs/MRs: checks+approved+not behind; confirm merge with live re-fetch) · **All local** · **This repo**. Backed by [lib/notifications.ts](lib/notifications.ts), [lib/work.ts](lib/work.ts), [lib/mergeable.ts](lib/mergeable.ts), [lib/issues.ts](lib/issues.ts).
 - **Leaderboard** — composite activity score across all scanned repos for a 7d/30d/90d/all window.

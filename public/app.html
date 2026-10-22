@@ -2866,13 +2866,37 @@
     // Repo loading
     async function loadRepos() {
       try {
-        const resp = await fetch('/api/repos');
+        const [resp, jiraTargets] = await Promise.all([fetch('/api/repos'), loadJiraTargets()]);
         if (resp.ok) {
-          repos = await resp.json();
+          repos = (await resp.json()).concat(jiraTargets);
           restoreSelectedRepo();
         }
       } catch (err) {
         console.error('Failed to load repos:', err);
+      }
+    }
+
+    // Jira targets (config.jira.targets) join the picker as pseudo-repos. Submitting to
+    // one opens Jira's prefilled Create form instead of calling an issue API.
+    async function loadJiraTargets() {
+      try {
+        const resp = await fetch('/api/config');
+        if (!resp.ok) return [];
+        const cfg = await resp.json();
+        return (cfg.jira?.targets ?? []).map(t => ({
+          kind: 'jira',
+          jiraTarget: t.name,
+          name: `Jira · ${t.name}`,
+          host: new URL(t.baseUrl).host,
+          owner: '',
+          repo: '',
+          remoteUrl: `jira:${t.name}`,
+          localPath: 'Jira prefilled link',
+          epicKey: t.epicKey || null,
+        }));
+      } catch (err) {
+        console.error('Failed to load Jira targets:', err);
+        return [];
       }
     }
 
@@ -3028,10 +3052,15 @@
       pathLine.textContent = repo.localPath;
       const remoteLine = document.createElement('div');
       remoteLine.className = 'repo-meta';
-      remoteLine.textContent = `remote: ${repo.remoteUrl}`;
       const targetLine = document.createElement('div');
       targetLine.className = 'repo-meta';
-      targetLine.textContent = `target: ${repo.host}/${repo.owner}/${repo.repo}`;
+      if (repo.kind === 'jira') {
+        remoteLine.textContent = 'opens the Jira form prefilled; you review it and click Create';
+        targetLine.textContent = `target: ${repo.host}${repo.epicKey ? ` · epic ${repo.epicKey}` : ''}`;
+      } else {
+        remoteLine.textContent = `remote: ${repo.remoteUrl}`;
+        targetLine.textContent = `target: ${repo.host}/${repo.owner}/${repo.repo}`;
+      }
       selectedRepoEl.append(pathLine, remoteLine, targetLine);
       if (badge) {
         const badgeEl = document.createElement('span');
@@ -3051,7 +3080,7 @@
       if (state === STATES.TRIAGED || state === STATES.ERROR) {
         updateUI();
       }
-      if (repo.remoteUrl) {
+      if (repo.remoteUrl && repo.kind !== 'jira') {
         refreshAccountChip(repo.remoteUrl);
       } else {
         clearAccountChip();
@@ -3233,8 +3262,9 @@
           triageBody.imageBase64 = attachedImage.dataUrl;
           triageBody.imageMimeType = attachedImage.mimeType;
         }
-        // Include repos for AI repo suggestion (max 200, only name + host)
-        const repoPayload = repos.slice(0, 200).map(r => ({ name: r.name, host: r.host }));
+        // Include repos for AI repo suggestion (max 200, only name + host). Jira targets
+        // aren't owner/repo shaped, so they stay out of the suggestion list.
+        const repoPayload = repos.filter(r => r.kind !== 'jira').slice(0, 200).map(r => ({ name: r.name, host: r.host }));
         if (repoPayload.length > 0) {
           triageBody.repos = repoPayload;
         }
@@ -3296,6 +3326,11 @@
       const title = issueTitleEl.value.trim();
       if (!title) return;
 
+      if (selectedRepo.kind === 'jira') {
+        await openJiraForm(selectedRepo, title, issueBodyEl.value.trim());
+        return;
+      }
+
       setState(STATES.SUBMITTING);
       try {
         const issueBody = {
@@ -3339,21 +3374,82 @@
       }
     });
 
-    function showSuccess(url, number) {
+    // Jira: the tab is opened inside the click so popup blockers allow it, then pointed
+    // at the prefilled Create form. The description also goes to the clipboard, because
+    // the form can lose its fields across an SSO sign-in redirect.
+    async function openJiraForm(target, title, body) {
+      // A clipboard write can sit on a permission prompt forever; never let it block.
+      const clip = Promise.race([
+        navigator.clipboard?.writeText(body).then(() => true, () => false) ?? false,
+        new Promise(resolve => setTimeout(() => resolve(false), 1500)),
+      ]);
+      const win = window.open('about:blank', '_blank');
+      setState(STATES.SUBMITTING);
+      try {
+        const resp = await fetch('/api/jira/link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target: target.jiraTarget, title, body }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data.error?.message || 'Could not build the Jira link');
+        }
+        if (win) {
+          win.opener = null;
+          win.location.href = data.url;
+        }
+        const copied = await clip;
+        const notes = [];
+        if (!win) notes.push('Your browser blocked the new tab. Use the link above.');
+        if (data.truncated) {
+          notes.push(copied
+            ? 'The description was too long for a link, so it was cut. The full text is on your clipboard.'
+            : 'The description was too long for a link, so it was cut.');
+        } else if (copied) {
+          notes.push('The description is on your clipboard too, in case Jira drops it during sign-in.');
+        }
+        if (attachedImage) notes.push("A link can't carry the screenshot. Attach it in Jira.");
+        showSuccess(data.url, null, {
+          headline: win
+            ? 'Jira form opened. Review it and click Create.'
+            : 'Jira form is ready. Open it, review, and click Create.',
+          notes,
+          resetMs: win ? 6000 : 20000,
+        });
+      } catch (err) {
+        if (win) win.close();
+        showError(err.message);
+      }
+    }
+
+    // opts: { headline, notes: string[], resetMs } — Jira passes these; issues use defaults.
+    function showSuccess(url, number, opts = {}) {
       setState(STATES.SUCCESS);
       statusPanel.style.display = 'block';
       statusPanel.innerHTML = '';
       const box = document.createElement('div');
       box.className = 'status-success';
       const strong = document.createElement('strong');
-      strong.textContent = `Issue #${number} created!`;
+      strong.textContent = opts.headline ?? `Issue #${number} created!`;
       const br = document.createElement('br');
       const link = document.createElement('a');
       link.href = url;
       link.textContent = url;
       link.target = '_blank';
       link.rel = 'noopener';
+      if (opts.headline) {
+        link.textContent = 'Open the Jira form';
+        link.title = url;
+      }
       box.append(strong, br, link);
+      for (const note of opts.notes ?? []) {
+        const noteEl = document.createElement('div');
+        noteEl.className = 'repo-meta';
+        noteEl.style.marginTop = '6px';
+        noteEl.textContent = note;
+        box.appendChild(noteEl);
+      }
       statusPanel.appendChild(box);
       // Reset after 3 seconds; close modal if open (grill-me: short success flash then close)
       clearTimeout(successTimer);
@@ -3372,7 +3468,7 @@
         if (typeof glassCloseFeedbackModal === 'function' && feedbackModalOpen) {
           glassCloseFeedbackModal({ force: true });
         }
-      }, 2000);
+      }, opts.resetMs ?? 2000);
     }
 
     function showError(message) {

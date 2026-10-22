@@ -1,3 +1,4 @@
+| Open Jira form | Feedback view (Jira target) | POST /api/jira/link -> `{ url, truncated }` | CSRF; targets from `config.jira.targets`; no token |
 # Git Glass feature map
 
 Agent navigation for the running app. Do not weaken CSRF or validateRepoPath. Default bind is `0.0.0.0` with no auth; prefer `127.0.0.1` for loopback-only.

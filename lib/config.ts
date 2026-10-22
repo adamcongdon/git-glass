@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { mkdir, readFile, writeFile, rename } from "fs/promises";
 import { join, dirname, resolve as resolvePath } from "path";
+import { JiraTargetSchema, type JiraTarget } from "./jira";
 
 export const AI_PROVIDERS = ["github-copilot", "anthropic", "openai", "grok", "openai-compatible", "local"] as const;
 export type AiProvider = typeof AI_PROVIDERS[number];
@@ -60,6 +61,15 @@ export const ConfigSchema = z.object({
       autoUpdate: z.boolean().default(false),
     })
     .default({}),
+  /** Jira prefilled-link targets. Config-file only; nothing here is secret. */
+  jira: z
+    .object({
+      targets: z
+        .array(JiraTargetSchema)
+        .refine((ts) => new Set(ts.map((t) => t.name)).size === ts.length, "Jira target names must be unique")
+        .default([]),
+    })
+    .default({}),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -94,6 +104,9 @@ export type RedactedConfig = {
   };
   updates: {
     autoUpdate: boolean;
+  };
+  jira: {
+    targets: JiraTarget[];
   };
 };
 
@@ -135,6 +148,9 @@ export function redactConfig(config: Partial<Config>): RedactedConfig {
     },
     updates: {
       autoUpdate: config.updates?.autoUpdate ?? false,
+    },
+    jira: {
+      targets: config.jira?.targets ?? [],
     },
   };
 }
