@@ -1,3 +1,4 @@
+| Open Jira form | None. Your browser's Jira session; Git Glass only builds the link |
 # Git Glass
 
 A local-first PWA that surfaces repository status, triages feedback into GitHub/GitLab issues, and scores repo activity — all running as a single Bun process bound to `127.0.0.1:7777`.
@@ -52,6 +53,27 @@ For GitLab, add per-host PATs (requires `api` scope) — also settable via Setti
   }
 }
 ```
+
+For Jira, add one or more **prefilled-link targets**. Picking a Jira target in the Feedback view opens Jira's own Create form with the title, description, project, issue type, epic and labels filled in. You review it and click Create in your logged-in browser, so Git Glass never holds a Jira token. The description is also copied to your clipboard, and descriptions too long for a link are trimmed to fit. Screenshots can't ride in a link; attach them in Jira. Targets are config-file only (no Settings UI yet):
+
+```json
+{
+  "jira": {
+    "targets": [
+      {
+        "name": "My team",
+        "baseUrl": "https://your-site.atlassian.net",
+        "projectId": "10000",
+        "issueTypeId": "10001",
+        "epicKey": "ABC-123",
+        "labels": ["from-git-glass"]
+      }
+    ]
+  }
+}
+```
+
+`projectId` and `issueTypeId` are the numeric ids (the `pid` and `issuetype` params in any Jira Create link). `epicKey`, `epicField` (default `customfield_10014`) and `labels` are optional. An invalid target fails config validation, like any other bad field.
 
 ## Running
 
@@ -112,6 +134,7 @@ lib/
   leaderboard.ts  Scoring + in-memory cache keyed by HEAD SHA
   github.ts       Issue creation, screenshot upload to .github/issue-assets/
   gitlab.ts       Issue creation via per-host PAT
+  jira.ts         Jira prefilled Create-form links (no token)
   gh.ts           gh CLI wrapper — multi-account token discovery
   remoteUrl.ts    SSH/HTTPS remote → browser URL (mirrored in app.html)
 public/

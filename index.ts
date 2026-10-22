@@ -9,6 +9,7 @@ import { triageFeedback, type AiConfig, VALID_PRIORITIES, VALID_COMPONENTS, VALI
 import { AI_PROVIDERS } from "./lib/config";
 import { createIssue, applyLabels, postTriageComment, TYPE_TO_LABEL, type TriageCommentData } from "./lib/github";
 import { createIssue as createGitLabIssue } from "./lib/gitlab";
+import { fitJiraCreateUrl } from "./lib/jira";
 import { getGhAccounts, getGhToken } from "./lib/gh";
 import { resolveAccountForRemote } from "./lib/accountResolver";
 import { validateRepoPath, getAllRepoStatuses, runGit } from "./lib/gitStatus";
@@ -473,6 +474,43 @@ app.post("/api/issues", async (c) => {
     const context = ` (target: ${target})`;
     console.error(`[issues] ${status} ${code}${context}: ${err.message}`);
     return errorResponse(code, `${err.message}${context}`, status);
+  }
+});
+
+// Jira prefilled link: builds the Create-issue form URL for a configured target.
+// Nothing is filed server-side; the browser opens the form and the user clicks Create.
+const JiraLinkRequestSchema = z.object({
+  target: z.string().min(1).max(64),
+  title: z.string().min(1).max(256),
+  body: z.string().max(65536).default(""),
+});
+
+app.post("/api/jira/link", async (c) => {
+  const csrf = sameOriginGuard(c);
+  if (csrf) return csrf;
+
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return errorResponse("INVALID_JSON", "Request body must be valid JSON", 400);
+  }
+
+  const parsed = JiraLinkRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse("VALIDATION_ERROR", parsed.error.message, 400);
+  }
+
+  const config = await readConfig();
+  const target = config.jira.targets.find((t) => t.name === parsed.data.target);
+  if (!target) {
+    return errorResponse("UNKNOWN_JIRA_TARGET", `No Jira target named "${parsed.data.target}" in config.json`, 404);
+  }
+
+  try {
+    return c.json(fitJiraCreateUrl(target, parsed.data.title, parsed.data.body));
+  } catch (err: any) {
+    return errorResponse("JIRA_LINK_TOO_LONG", err.message, 400);
   }
 });
 
