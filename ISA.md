@@ -171,3 +171,15 @@ Add a `/api/version` endpoint that returns the current Git Glass version and the
 - ISC-35: Read — lib/version.ts: `VersionInfo` interface has only `current`, `latest`, `updateAvailable`, `currentCommit` — no token/key fields; API route returns that shape directly
 - ISC-36: [DEFERRED-VERIFY] — code at app.html line 2363 uses `!!(el?.checked)` which correctly sends `false` when unchecked; live save test needs browser
 - ISC-37: Bash — `git pull --ff-only` (with local mods) returned `Already up to date. EXIT: 0` (no remote changes to pull). Confirmed: `--ff-only` passes when nothing to pull; exits non-0 on conflict/divergence (covered by ISC-23 logging). Dev workflow protected by the combination.
+
+## Inbox Board and Merge order (issue #38)
+
+Ideal state: opening the Inbox shows every open merge request and issue across the chosen repos, side by side per repo, with a Merge order view of open MRs oldest first; stuck MRs say why and rise to the top, and MRs from the triage bot carry a badge, so a healthy, nearly empty board is visible at a glance.
+
+- [x] IB-1: `GET /api/board` returns per-repo open MRs and issues, with no fixed per-repo cap (paginated, `mrsTruncated` when it stops early). Evidence: lib/board.ts; live local run returned 5 repos, 0 failures.
+- [x] IB-2: Each MR carries ordered stuck reasons (checks failing/pending, conflict, changes requested, waiting on review, draft, behind, old > `inbox.staleDays`). Evidence: tests/board.test.ts ghStuckReasons, glStuckReasons.
+- [x] IB-3: Stuck MRs sort first, oldest first within each group; newest-first toggle available. Evidence: tests/board.test.ts sortMrs.
+- [x] IB-4: Triage-bot MRs detected by configurable `inbox.bot` markers, authors, branch prefixes. Evidence: tests/board.test.ts isBotTouched.
+- [x] IB-5: Per-repo health (open, stuck, oldest, bot) and one failing repo never blanks the board. Evidence: tests/board.test.ts repoHealth, assembleBoard.
+- [x] IB-6: Inbox shows four modes (Board default, Merge order, Notifications, Mine) at desktop and 390px with no horizontal scroll. Evidence: Playwright (Chromium) on the local server, 4 modes, Board default, scrollWidth 390 at 390 on Board and Merge order, zero console errors.
+- [x] IB-7: Ready MRs in Merge order open the existing confirm-merge flow. Evidence: Playwright with a mocked ready MR, Merge opens the confirm modal with the live status line.

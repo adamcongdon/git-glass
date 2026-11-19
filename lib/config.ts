@@ -49,6 +49,16 @@ export const ConfigSchema = z.object({
           }),
         )
         .default([]),
+      /** MRs opened longer ago than this count as stuck ("old"). */
+      staleDays: z.number().int().min(1).max(365).default(7),
+      /** How to recognise MRs the triage bot opened or touched. */
+      bot: z
+        .object({
+          markers: z.array(z.string().min(1).max(200)).default(["triage-engine:", "automated triage bot"]),
+          authors: z.array(z.string().min(1).max(100)).default([]),
+          branchPrefixes: z.array(z.string().min(1).max(100)).default([]),
+        })
+        .default({}),
     })
     .default({}),
   repos: z
@@ -98,6 +108,8 @@ export type RedactedConfig = {
   ignoredRepos: string[];
   inbox: {
     hiddenRepos: Array<{ host: string; owner: string; repo: string }>;
+    staleDays: number;
+    bot: { markers: string[]; authors: string[]; branchPrefixes: string[] };
   };
   repos: {
     autoRefreshSec: number;
@@ -119,7 +131,7 @@ const CONFIG_PATH = join(
 
 let _cache: Config | null = null;
 
-export function redactConfig(config: Partial<Config>): RedactedConfig {
+export function redactConfig(config: ConfigUpdate): RedactedConfig {
   return {
     scanPaths: config.scanPaths ?? [],
     scanDepth: config.scanDepth ?? 3,
@@ -142,6 +154,12 @@ export function redactConfig(config: Partial<Config>): RedactedConfig {
     ignoredRepos: config.ignoredRepos ?? [],
     inbox: {
       hiddenRepos: config.inbox?.hiddenRepos ?? [],
+      staleDays: config.inbox?.staleDays ?? 7,
+      bot: {
+        markers: config.inbox?.bot?.markers ?? [],
+        authors: config.inbox?.bot?.authors ?? [],
+        branchPrefixes: config.inbox?.bot?.branchPrefixes ?? [],
+      },
     },
     repos: {
       autoRefreshSec: config.repos?.autoRefreshSec ?? 0,
@@ -185,7 +203,9 @@ export async function readConfig(): Promise<Config> {
 // empty-string value DELETES the host entry; any non-empty value upserts. This avoids
 // needing a separate DELETE endpoint and lets the UI flag rows for removal without
 // re-sending other hosts' (redacted) tokens.
-export async function writeConfig(updates: Partial<Config>): Promise<Config> {
+export type ConfigUpdate = Omit<Partial<Config>, "inbox"> & { inbox?: Partial<Config["inbox"]> };
+
+export async function writeConfig(updates: ConfigUpdate): Promise<Config> {
   _cache = null;
   const existing = await readConfig();
 
@@ -237,6 +257,7 @@ export async function writeConfig(updates: Partial<Config>): Promise<Config> {
           ...existing.inbox,
           ...updates.inbox,
           hiddenRepos: updates.inbox.hiddenRepos ?? existing.inbox.hiddenRepos,
+          bot: { ...existing.inbox.bot, ...(updates.inbox.bot ?? {}) },
         }
       : existing.inbox,
     repos: updates.repos !== undefined
