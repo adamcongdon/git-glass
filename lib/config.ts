@@ -131,7 +131,7 @@ const CONFIG_PATH = join(
 
 let _cache: Config | null = null;
 
-export function redactConfig(config: Partial<Config>): RedactedConfig {
+export function redactConfig(config: ConfigUpdate): RedactedConfig {
   return {
     scanPaths: config.scanPaths ?? [],
     scanDepth: config.scanDepth ?? 3,
