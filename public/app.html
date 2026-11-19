@@ -1402,7 +1402,6 @@
       flex-wrap: wrap;
     }
 
-    .glass-issues-mode,
     .glass-issues-state-btn {
       background: transparent;
       border: 1px solid var(--border);
@@ -1414,54 +1413,19 @@
       font-weight: 500;
       font-family: inherit;
     }
-    .glass-issues-mode:hover,
     .glass-issues-state-btn:hover {
       color: var(--text);
       background: var(--hover-overlay);
     }
-    .glass-issues-mode[aria-pressed="true"],
     .glass-issues-state-btn[aria-pressed="true"] {
       background: var(--accent-green);
       color: var(--bg);
       border-color: var(--accent-green);
       font-weight: 600;
     }
-    .glass-issues-mode:focus,
     .glass-issues-state-btn:focus {
       outline: 2px solid var(--focus-ring);
       outline-offset: 2px;
-    }
-
-    .glass-issues-filters {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: center;
-    }
-
-    .glass-issues-filters label {
-      font-size: 11px;
-      color: var(--muted);
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .glass-issues-filters select,
-    .glass-issues-filters input {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: var(--radius);
-      padding: 4px 8px;
-      font-size: 12px;
-      font-family: inherit;
-      min-width: 100px;
-    }
-    .glass-issues-filters select:focus,
-    .glass-issues-filters input:focus {
-      outline: 2px solid var(--focus-ring);
-      outline-offset: 1px;
     }
 
     .glass-issues-fail-banner {
@@ -1600,24 +1564,6 @@
       color: var(--muted);
     }
 
-    .glass-issues-more {
-      display: flex;
-      justify-content: center;
-      padding: 12px 0 8px;
-    }
-    .glass-issues-more[hidden] { display: none; }
-    .glass-issues-more button {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: var(--radius);
-      padding: 8px 16px;
-      font-size: 13px;
-      font-family: inherit;
-      cursor: pointer;
-    }
-    .glass-issues-more button:hover { background: var(--hover-overlay); }
-
     .glass-inbox-badge {
       display: inline-flex;
       align-items: center;
@@ -1730,22 +1676,368 @@
       color: var(--purple, #a78bfa);
       border-color: var(--purple, #a78bfa);
     }
-    .glass-mergeable-row {
-      border-left: 3px solid var(--border);
+    /* ── Inbox: mode control ─────────────────────────────────────────────── */
+    .glass-inbox-modes {
+      display: grid;
+      grid-template-columns: repeat(4, auto);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--bg);
+      max-width: 100%;
     }
-    .glass-mergeable-row.is-ready {
-      border-left-color: var(--accent-green);
+    .glass-inbox-mode {
+      min-height: 36px;
+      padding: 4px 14px;
+      background: transparent;
+      border: 0;
+      border-right: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.2;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      text-align: left;
     }
-    .glass-mergeable-row.is-blocked {
-      border-left-color: var(--warning, #d97706);
+    .glass-inbox-mode:last-child { border-right: 0; }
+    .glass-inbox-mode:hover { color: var(--text); background: var(--hover-overlay); }
+    .glass-inbox-mode[aria-pressed="true"] {
+      background: var(--accent-green);
+      color: var(--bg);
+      font-weight: 600;
     }
-    .glass-reason-chip {
+    .glass-inbox-mode:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+    .glass-inbox-mode-sub { font-size: 10px; font-weight: 500; opacity: 0.8; }
+    .glass-inbox-chips[hidden],
+    .glass-issues-modes[hidden],
+    .glass-focus-bar[hidden],
+    #glass-board[hidden],
+    #glass-mo[hidden],
+    .glass-issues-list[hidden] { display: none; }
+    #glass-board-tools,
+    #glass-mo-tools { margin-top: 0; }
+    .glass-mo-status { font-size: 12px; color: var(--muted); }
+    .glass-focus-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .glass-focus-bar strong { color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    /* ── Inbox: Board ────────────────────────────────────────────────────── */
+    .glass-board {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+      min-width: 0;
+    }
+    .glass-board-note { font-size: 13px; color: var(--muted); }
+    .glass-board-band {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      min-width: 0;
+    }
+    .glass-board-band.is-healthy { border-left-color: var(--accent-green); }
+    .glass-board-band.is-stuck { border-left-color: var(--warning); }
+    .glass-board-band.is-error { border-left-color: var(--error); }
+    .glass-board-band.is-focused { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+    .glass-board-band-h {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 10px;
+      margin-bottom: 10px;
+    }
+    .glass-board-repo {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.3;
+      color: var(--link);
+      text-decoration: none;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    a.glass-board-repo:hover { text-decoration: underline; }
+    .glass-board-repo:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 2px; }
+    .glass-board-health { font-size: 12px; color: var(--muted); }
+    .glass-board-health-ok { color: var(--accent-green); font-weight: 600; }
+    .glass-board-health-stuck { color: var(--warning); font-weight: 600; }
+    .glass-board-band-actions { margin-left: auto; display: flex; gap: 4px; }
+    .glass-board-band-actions button {
+      min-width: 32px;
+      min-height: 32px;
+      padding: 0 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--muted);
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .glass-board-band-actions button:hover { color: var(--text); background: var(--hover-overlay); }
+    .glass-board-band-actions button[aria-pressed="true"] { color: var(--accent-blue); border-color: var(--accent-blue); }
+    .glass-board-band-actions button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+    .glass-board-lanes {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 12px;
+    }
+    .glass-board-lanes.is-single { grid-template-columns: minmax(0, 1fr); }
+    .glass-board-lane { min-width: 0; }
+    .glass-board-lane-h {
+      display: flex;
+      gap: 6px;
+      margin: 0 0 6px;
       font-size: 11px;
-      padding: 1px 6px;
-      border-radius: 8px;
-      background: rgba(217, 119, 6, 0.12);
-      color: var(--warning, #d97706);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
     }
+    .glass-board-lane-empty {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 10px 12px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+    }
+    .glass-board-lane-more { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+    .glass-board-lane-more a { color: var(--link); }
+    .glass-board-fail,
+    .glass-mo-fail {
+      font-size: 13px;
+      color: var(--text);
+      padding: 10px 12px;
+      border: 1px solid var(--error);
+      border-radius: var(--radius);
+      background: var(--bg);
+    }
+    .glass-board-fail code,
+    .glass-mo-fail code {
+      display: block;
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      overflow-wrap: anywhere;
+    }
+    .glass-board-fail button,
+    .glass-board-calm button,
+    .glass-board-fail a {
+      background: none;
+      border: 0;
+      padding: 0;
+      color: var(--link);
+      font: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .glass-board-calm {
+      padding: 20px 16px;
+      text-align: center;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent-green);
+      border-radius: var(--radius);
+      background: var(--surface);
+      font-size: 14px;
+    }
+    .glass-board-calm .glass-board-calm-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .glass-board-quiet {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 4px 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .glass-board-quiet summary {
+      cursor: pointer;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+    }
+    .glass-board-quiet summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+    .glass-board-quiet-list { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 10px; }
+    .glass-board-quiet-item {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--hover-overlay);
+      color: var(--muted);
+      text-decoration: none;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .glass-board-skel { animation: glass-skel-pulse 1.4s ease-in-out infinite; }
+    .glass-skel-bar,
+    .glass-skel-block { background: var(--hover-overlay); border-radius: var(--radius); }
+    .glass-skel-bar { height: 16px; width: 40%; margin-bottom: 12px; }
+    .glass-skel-block { height: 72px; }
+    @keyframes glass-skel-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+    .glass-issue-row--compact { padding: 10px 12px; margin-bottom: 6px; background: var(--bg); }
+
+    /* ── Inbox: MR rows (Board + Merge order) ────────────────────────────── */
+    .glass-mr-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 4px 10px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 6px;
+      min-width: 0;
+    }
+    .glass-mr-row.is-stuck { border-left-color: var(--warning); }
+    .glass-mr-row.is-ready { border-left-color: var(--accent-green); }
+    .glass-mr-row.is-mine { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-blue) 45%, transparent); }
+    .glass-mr-row.is-draft .glass-mr-title { color: var(--muted); }
+    .glass-mr-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--link);
+      text-decoration: none;
+      overflow-wrap: anywhere;
+      min-width: 0;
+    }
+    .glass-mr-title:hover { text-decoration: underline; }
+    .glass-mr-title:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 2px; }
+    .glass-mr-meta {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      font-size: 12px;
+      color: var(--muted);
+      min-width: 0;
+    }
+    .glass-mr-reasons { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; }
+    .glass-chip-reason,
+    .glass-badge-shepard,
+    .glass-badge-mine,
+    .glass-badge-draft {
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 16px;
+      padding: 1px 7px;
+      border-radius: 10px;
+      border: 1px solid;
+      white-space: nowrap;
+    }
+    .glass-chip-reason {
+      --c: var(--warning);
+      color: var(--c);
+      border-color: color-mix(in srgb, var(--c) 45%, transparent);
+      background: color-mix(in srgb, var(--c) 13%, transparent);
+    }
+    .glass-chip-reason[data-reason="checks-failing"],
+    .glass-chip-reason[data-reason="conflict"] { --c: var(--error); }
+    .glass-chip-reason[data-reason="checks-pending"] { --c: var(--info); }
+    .glass-chip-reason[data-reason="review"],
+    .glass-chip-reason[data-reason="behind"] { --c: var(--muted); }
+    .glass-badge-shepard {
+      color: var(--purple);
+      border-color: color-mix(in srgb, var(--purple) 45%, transparent);
+      background: color-mix(in srgb, var(--purple) 12%, transparent);
+    }
+    .glass-badge-mine {
+      color: var(--accent-blue);
+      border-color: color-mix(in srgb, var(--accent-blue) 45%, transparent);
+      background: color-mix(in srgb, var(--accent-blue) 12%, transparent);
+    }
+    .glass-badge-draft { color: var(--muted); border-color: var(--border); background: var(--hover-overlay); }
+
+    /* ── Inbox: Merge order ──────────────────────────────────────────────── */
+    .glass-mo { padding: 12px 16px 24px; max-width: 960px; margin: 0 auto; min-width: 0; }
+    .glass-mo-group-h {
+      margin: 16px 0 8px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+    .glass-mo-group-h:first-child { margin-top: 4px; }
+    .glass-mo-row { grid-template-columns: 28px minmax(0, 1fr) auto; background: var(--surface); }
+    .glass-mo-rank {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      padding-top: 2px;
+      text-align: right;
+    }
+    .glass-mo-row .glass-mr-meta,
+    .glass-mo-row .glass-mr-reasons { grid-column: 2 / -1; }
+    .glass-mo-repo { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .glass-mo-merge { grid-column: 3; grid-row: 1; min-height: 32px; padding: 0 14px; align-self: start; }
+    .glass-mo-empty { padding: 24px 0; text-align: center; color: var(--muted); font-size: 13px; }
+
+    @media (max-width: 720px) {
+      .glass-board-lanes { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 560px) {
+      .glass-inbox-modes { grid-template-columns: 1fr 1fr; width: 100%; }
+      .glass-inbox-mode { align-items: center; border-bottom: 1px solid var(--border); }
+      .glass-inbox-mode:nth-child(2n) { border-right: 0; }
+      .glass-inbox-mode:nth-child(n+3) { border-bottom: 0; }
+      .glass-inbox-mode-sub { display: none; }
+    }
+    @media (max-width: 480px) {
+      #view-issues button,
+      #view-issues select,
+      #view-issues summary { min-height: 44px; }
+      .glass-inbox-mode { min-height: 44px; }
+      .glass-board { padding: 12px 16px 24px; }
+      .glass-board-band { padding: 12px; }
+      .glass-board-band-actions button { min-width: 44px; min-height: 44px; }
+      .glass-board-repo { display: block; padding: 12px 0; line-height: 20px; }
+      .glass-mr-title,
+      .glass-issue-row--compact .glass-issue-title {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+      }
+      .glass-mo { padding: 12px 16px 24px; }
+      .glass-mo-row { grid-template-columns: 22px minmax(0, 1fr); }
+      .glass-mo-merge { grid-column: 2; grid-row: auto; justify-self: end; min-height: 44px; min-width: 96px; }
+      .glass-focus-bar { padding: 8px 16px; }
+      .glass-board-fail button,
+      .glass-board-calm button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .glass-board-skel { animation: none; }
+    }
+
     .glass-merge-actions {
       display: flex;
       gap: 6px;
@@ -2341,7 +2633,7 @@
     <header class="glass-issues-header">
       <div class="glass-issues-title-row">
         <h2 class="glass-issues-title">Inbox</h2>
-        <span class="glass-issues-hint" id="glass-inbox-hint">Notifications · Work · Mergeable · local issues</span>
+        <span class="glass-issues-hint" id="glass-inbox-hint">What is open and what is stuck, repo by repo</span>
         <button type="button" class="glass-inbox-hidden-btn" id="glass-inbox-hidden-btn" title="Manage hard-hidden repositories" hidden>
           Hidden <span id="glass-inbox-hidden-count">0</span>
         </button>
@@ -2350,17 +2642,28 @@
     </header>
 
     <div class="glass-issues-toolbar">
-      <div class="glass-issues-modes" role="group" aria-label="Inbox mode">
-        <button type="button" class="glass-issues-mode" data-mode="notifications" aria-pressed="true">Notifications</button>
-        <button type="button" class="glass-issues-mode" data-mode="work" aria-pressed="false">Work</button>
-        <button type="button" class="glass-issues-mode" data-mode="mergeable" aria-pressed="false">Mergeable</button>
-        <button type="button" class="glass-issues-mode" data-mode="all" aria-pressed="false">All local</button>
-        <button type="button" class="glass-issues-mode" data-mode="repo" aria-pressed="false">This repo</button>
+      <div class="glass-inbox-modes" role="group" aria-label="Inbox view">
+        <button type="button" class="glass-inbox-mode" data-mode="board" aria-pressed="true" title="Which merge requests and issues are open, and which are stuck, repo by repo">Board<span class="glass-inbox-mode-sub">by repo</span></button>
+        <button type="button" class="glass-inbox-mode" data-mode="merge-order" aria-pressed="false" title="Which merge request to merge first, oldest first">Merge order<span class="glass-inbox-mode-sub">oldest first</span></button>
+        <button type="button" class="glass-inbox-mode" data-mode="notifications" aria-pressed="false" title="What mentioned, assigned or pinged you">Notifications<span class="glass-inbox-mode-sub">mentions &amp; CI</span></button>
+        <button type="button" class="glass-inbox-mode" data-mode="mine" aria-pressed="false" title="What needs you: reviews first, then your issues and PRs">Mine<span class="glass-inbox-mode-sub">assigned to me</span></button>
       </div>
       <div class="glass-issues-modes" id="glass-issues-state-group" role="group" aria-label="Issue state" hidden>
         <button type="button" class="glass-issues-state-btn" data-state="open" aria-pressed="true">Open</button>
         <button type="button" class="glass-issues-state-btn" data-state="closed" aria-pressed="false">Closed</button>
         <button type="button" class="glass-issues-state-btn" data-state="all" aria-pressed="false">All</button>
+      </div>
+      <div class="glass-inbox-chips" id="glass-board-tools" role="group" aria-label="Board filters" hidden>
+        <button type="button" class="glass-inbox-chip" id="glass-chip-stuckonly" aria-pressed="false">Stuck only</button>
+      </div>
+      <div class="glass-inbox-chips" id="glass-mo-tools" role="group" aria-label="Merge order filters" hidden>
+        <button type="button" class="glass-inbox-chip" data-mo-filter="mine" aria-pressed="false">Mine</button>
+        <button type="button" class="glass-inbox-chip" data-mo-filter="shepard" aria-pressed="false">Shepard</button>
+        <button type="button" class="glass-inbox-chip" data-mo-filter="stuck" aria-pressed="false">Stuck</button>
+        <button type="button" class="glass-inbox-chip" data-mo-filter="ready" aria-pressed="false">Ready</button>
+        <button type="button" class="glass-inbox-chip" id="glass-mo-sort">Oldest first</button>
+        <button type="button" class="glass-inbox-chip" id="glass-mo-group" aria-pressed="true">Group stuck first</button>
+        <span class="glass-mo-status" id="glass-mo-status" role="status" aria-live="polite"></span>
       </div>
       <div class="glass-inbox-chips" id="glass-notif-chips" hidden>
         <button type="button" class="glass-inbox-chip" id="glass-chip-local" aria-pressed="true">Local</button>
@@ -2373,38 +2676,6 @@
           </select>
         </label>
       </div>
-      <div class="glass-issues-filters" id="glass-issues-filters" hidden>
-        <label>Repo
-          <select id="glass-issues-repo" aria-label="Filter by repository">
-            <option value="">All repos</option>
-          </select>
-        </label>
-        <label>Host
-          <select id="glass-issues-host" aria-label="Filter by host">
-            <option value="all">All</option>
-            <option value="github">GitHub</option>
-            <option value="gitlab">GitLab</option>
-          </select>
-        </label>
-        <label>Updated
-          <select id="glass-issues-updated" aria-label="Updated within">
-            <option value="any">Any time</option>
-            <option value="24h">24h</option>
-            <option value="7d">7d</option>
-            <option value="30d">30d</option>
-            <option value="90d">90d</option>
-          </select>
-        </label>
-        <label>Label
-          <input type="text" id="glass-issues-label" placeholder="e.g. bug" autocomplete="off" />
-        </label>
-        <label>Author
-          <input type="text" id="glass-issues-author" placeholder="@user" autocomplete="off" />
-        </label>
-        <label>Assignee
-          <input type="text" id="glass-issues-assignee" placeholder="@user" autocomplete="off" />
-        </label>
-      </div>
     </div>
 
     <div class="glass-inbox-bulk" id="glass-inbox-bulk" hidden>
@@ -2415,6 +2686,11 @@
       <button type="button" class="btn" id="glass-bulk-mute">Mute</button>
     </div>
 
+    <div class="glass-focus-bar" id="glass-focus-bar" hidden>
+      <span>Focused on <strong id="glass-focus-name"></strong></span>
+      <button type="button" class="glass-inbox-chip" id="glass-focus-clear">Clear focus</button>
+    </div>
+
     <div class="glass-issues-fail-banner" id="glass-issues-fail-banner" hidden>
       <details>
         <summary id="glass-issues-fail-summary">Some repos failed to load</summary>
@@ -2422,7 +2698,10 @@
       </details>
     </div>
 
-    <div class="glass-issues-list" id="glass-issues-list">
+    <div class="glass-board" id="glass-board" aria-live="polite"></div>
+    <div class="glass-mo" id="glass-mo"><div id="glass-mo-body" aria-live="polite"></div></div>
+
+    <div class="glass-issues-list" id="glass-issues-list" hidden>
       <div class="glass-issues-loading" id="glass-issues-loading" role="status" hidden>
         <span class="spinner" style="width:18px;height:18px;display:inline-block;"></span> Loading&hellip;
       </div>
@@ -2431,9 +2710,6 @@
         <div class="glass-inbox-empty-hidden" id="glass-inbox-empty-hidden" hidden></div>
       </div>
       <div id="glass-issues-rows" role="list" aria-label="Inbox items"></div>
-      <div class="glass-issues-more" id="glass-issues-more" hidden>
-        <button type="button" id="glass-issues-load-more">Load more</button>
-      </div>
     </div>
 
     <!-- Hard-hidden repos drawer -->
@@ -2446,8 +2722,7 @@
         </button>
       </div>
       <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.45;">
-        These repositories are hard-hidden from Notifications, Work, Mergeable, and All local.
-        This repo mode and the single-repo filter still show them.
+        These repositories are hard-hidden from Board, Merge order, Notifications, and Mine.
       </p>
       <div id="glass-inbox-hidden-list"></div>
     </div>
@@ -4066,7 +4341,23 @@
 
   <!-- ── Repos view script ──────────────────────────────────────────────── -->
   <script>
-    // ── Shared state for Repos view ─────────────────────────────────────────
+    // \u2500\u2500 Inbox mode persistence (migrates removed modes) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    function glassInboxNormalizeMode(v) {
+      if (v === 'work') return 'mine';
+      return (v === 'board' || v === 'merge-order' || v === 'notifications' || v === 'mine') ? v : 'board';
+    }
+    function glassInboxStoreMode(mode) {
+      try { localStorage.setItem('glass.inbox.mode', mode); } catch (_) { /* storage unavailable */ }
+    }
+    function glassInboxReadMode() {
+      let raw = null;
+      try { raw = localStorage.getItem('glass.inbox.mode'); } catch (_) { /* storage unavailable */ }
+      const mode = glassInboxNormalizeMode(raw);
+      if (raw !== null && raw !== mode) glassInboxStoreMode(mode);
+      return mode;
+    }
+
+    // \u2500\u2500 Shared state for Repos view \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     const glassState = {
       activeView: 'feedback',
       repos: {
@@ -4079,22 +4370,11 @@
         aiAvailable: false,
       },
       issues: {
-        mode: 'notifications', // notifications | work | mergeable | all | repo
+        mode: glassInboxReadMode(), // board | merge-order | notifications | mine
         state: 'open',
-        host: 'all',
-        updated: 'any',
-        repo: '',
-        label: '',
-        author: '',
-        assignee: '',
-        page: 1,
         loaded: false,
         loading: false,
-        hasMore: false,
-        items: [],
-        remotes: [],
         failures: [],
-        totalMatched: 0,
         undonedCount: 0,
         /** Hard-hidden repos: [{ host, owner, repo }] */
         hiddenRepos: [],
@@ -4111,7 +4391,16 @@
           focusIdx: 0,
         },
         work: { sections: [], items: [], warmedAt: 0, warming: false },
-        mergeable: { items: [], focusIdx: 0 },
+        board: { data: null, error: '', focus: '', stuckOnly: false },
+        mo: {
+          order: 'oldest', // oldest | newest
+          groupStuck: true,
+          filters: { mine: false, shepard: false, stuck: false, ready: false },
+          ready: null, // Map key -> /api/mergeable row, filled lazily
+          readyAt: 0,
+          readyLoading: false,
+          readyError: '',
+        },
         mergeTarget: null,
       },
       leaderboard: {
@@ -4164,7 +4453,7 @@
       const w = glassState.issues.work;
       if (w.warming) return;
       if (w.warmedAt) return;
-      if (glassState.activeView === 'issues' && glassState.issues.mode === 'work' && glassState.issues.loading) {
+      if (glassState.activeView === 'issues' && glassState.issues.mode === 'mine' && glassState.issues.loading) {
         return;
       }
       w.warming = true;
@@ -4177,7 +4466,7 @@
         w.warmedAt = Date.now();
         if (typeof data.hiddenCount === 'number') glassState.issues.hiddenCount = data.hiddenCount;
         if (data.failures) glassState.issues.failures = data.failures;
-        if (glassState.activeView === 'issues' && glassState.issues.mode === 'work') {
+        if (glassState.activeView === 'issues' && glassState.issues.mode === 'mine') {
           glassIssuesRenderFailures(data.failures || []);
           glassInboxSyncHiddenChrome();
           glassRenderWork();
@@ -4199,7 +4488,7 @@
           await glassLoadRepos({ silent: true });
         } else if (surface === 'work') {
           if (glassState.issues.work.warmedAt || glassState.issues.work.warming) return true;
-          if (glassState.activeView === 'issues' && glassState.issues.mode === 'work') return true;
+          if (glassState.activeView === 'issues' && glassState.issues.mode === 'mine') return true;
           await glassWarmFetchWork();
         } else if (surface === 'leaderboard') {
           if (glassState.leaderboard.loaded || glassState.leaderboard.loading) return true;
@@ -4822,24 +5111,35 @@
     }
 
     function glassInboxSyncChrome() {
-      const mode = glassState.issues.mode;
-      document.querySelectorAll('.glass-issues-mode').forEach((btn) => {
+      const st = glassState.issues;
+      const mode = st.mode;
+      const isBoardMode = mode === 'board' || mode === 'merge-order';
+      document.querySelectorAll('.glass-inbox-mode').forEach((btn) => {
         btn.setAttribute('aria-pressed', btn.dataset.mode === mode ? 'true' : 'false');
       });
       document.querySelectorAll('.glass-issues-state-btn').forEach((btn) => {
-        btn.setAttribute('aria-pressed', btn.dataset.state === glassState.issues.state ? 'true' : 'false');
+        btn.setAttribute('aria-pressed', btn.dataset.state === st.state ? 'true' : 'false');
       });
-      const isBrowse = mode === 'all' || mode === 'repo';
-      const isNotif = mode === 'notifications';
-      document.getElementById('glass-issues-state-group').hidden = !(isBrowse || mode === 'work');
-      document.getElementById('glass-issues-filters').hidden = !isBrowse;
-      document.getElementById('glass-notif-chips').hidden = !isNotif;
-      document.getElementById('glass-issues-more').hidden = !isBrowse || !glassState.issues.hasMore;
-      const nf = glassState.issues.notif;
+      document.getElementById('glass-issues-state-group').hidden = mode !== 'mine';
+      document.getElementById('glass-notif-chips').hidden = mode !== 'notifications';
+      document.getElementById('glass-board-tools').hidden = mode !== 'board';
+      document.getElementById('glass-mo-tools').hidden = mode !== 'merge-order';
+      document.getElementById('glass-board').hidden = mode !== 'board';
+      document.getElementById('glass-mo').hidden = mode !== 'merge-order';
+      document.getElementById('glass-issues-list').hidden = isBoardMode;
+      document.getElementById('glass-chip-stuckonly').setAttribute('aria-pressed', st.board.stuckOnly ? 'true' : 'false');
+      document.querySelectorAll('[data-mo-filter]').forEach((chip) => {
+        chip.setAttribute('aria-pressed', st.mo.filters[chip.dataset.moFilter] ? 'true' : 'false');
+      });
+      document.getElementById('glass-mo-sort').textContent = st.mo.order === 'oldest' ? 'Oldest first' : 'Newest first';
+      document.getElementById('glass-mo-group').setAttribute('aria-pressed', st.mo.groupStuck ? 'true' : 'false');
+      const nf = st.notif;
       document.getElementById('glass-chip-local').setAttribute('aria-pressed', nf.localOnly ? 'true' : 'false');
       document.getElementById('glass-chip-ci').setAttribute('aria-pressed', nf.includeCi ? 'true' : 'false');
       document.getElementById('glass-chip-bots').setAttribute('aria-pressed', nf.includeBots ? 'true' : 'false');
       document.getElementById('glass-chip-watching').setAttribute('aria-pressed', nf.includeWatching ? 'true' : 'false');
+      glassInboxSyncHint();
+      glassBoardSyncFocusBar();
       glassInboxUpdateBulk();
     }
 
@@ -4914,43 +5214,6 @@
       }
     }
 
-    function glassIssuesFillRepoSelect(remotes) {
-      const sel = document.getElementById('glass-issues-repo');
-      if (!sel) return;
-      const prev = glassState.issues.repo;
-      const opts = ['<option value="">All repos</option>'];
-      const seen = new Set();
-      // Local remotes first
-      for (const r of remotes || []) {
-        const key = r.owner + '/' + r.repo;
-        if (seen.has(key.toLowerCase())) continue;
-        seen.add(key.toLowerCase());
-        const isHidden = glassInboxIsHidden(r.host, r.owner, r.repo);
-        const label = key +
-          (r.hostType === 'gitlab' ? ' (' + r.host + ')' : '') +
-          (isHidden ? ' · hidden' : '');
-        opts.push(
-          '<option value="' + glassIssuesEsc(key) + '"' +
-          (prev === key ? ' selected' : '') +
-          '>' + glassIssuesEsc(label) + '</option>'
-        );
-      }
-      // Hidden repos not in local remotes (still focusable for bypass)
-      for (const h of glassState.issues.hiddenRepos || []) {
-        const key = h.owner + '/' + h.repo;
-        if (seen.has(key.toLowerCase())) continue;
-        seen.add(key.toLowerCase());
-        const label = glassInboxFormatHidden(h) + ' · hidden';
-        opts.push(
-          '<option value="' + glassIssuesEsc(key) + '"' +
-          (prev === key ? ' selected' : '') +
-          '>' + glassIssuesEsc(label) + '</option>'
-        );
-      }
-      sel.innerHTML = opts.join('');
-      if (prev) sel.value = prev;
-    }
-
     function glassInboxHideBtnHtml(host, owner, repo) {
       if (!host || !owner || !repo) return '';
       return '<button type="button" class="glass-inbox-hide-btn" ' +
@@ -4975,10 +5238,7 @@
       const label = (String(host).toLowerCase() === 'github.com')
         ? (owner + '/' + repo)
         : (owner + '/' + repo + ' on ' + host);
-      const ok = window.confirm(
-        'Hide ' + label + ' from Inbox (all attention modes) until you unhide?\n\n' +
-        'This repo mode and the single-repo filter still show it.',
-      );
+      const ok = window.confirm('Hide ' + label + ' from Inbox until you unhide?');
       if (!ok) return;
       try {
         const data = await glassApi('/api/inbox/hide', { host: host, owner: owner, repo: repo });
@@ -5060,57 +5320,6 @@
         const where = f.path || f.remote || f.host || f.account || 'unknown';
         return '<li><strong>' + glassIssuesEsc(where) + '</strong>: ' + glassIssuesEsc(f.message) + '</li>';
       }).join('');
-    }
-
-    function glassIssuesRenderRows(items, append) {
-      const container = document.getElementById('glass-issues-rows');
-      if (!append) container.innerHTML = '';
-      for (const issue of items) {
-        const row = document.createElement('article');
-        row.className = 'glass-issue-row';
-        row.setAttribute('data-id', issue.id);
-        const labels = (issue.labels || []).slice(0, 8).map((l) =>
-          '<span class="glass-issue-label">' + glassIssuesEsc(l) + '</span>'
-        ).join('');
-        const moreLabels = (issue.labels || []).length > 8
-          ? '<span class="glass-issue-label">+' + ((issue.labels.length) - 8) + '</span>'
-          : '';
-        const assignees = (issue.assignees || []).length
-          ? '→ ' + issue.assignees.map((a) => '@' + a).join(', ')
-          : '';
-        const author = issue.author ? '@' + issue.author : '';
-        const priority = issue.priority
-          ? '<span class="glass-issue-priority glass-issue-priority--' + issue.priority + '">' +
-            glassIssuesEsc(issue.priority) + '</span>'
-          : '';
-        const milestone = issue.milestone
-          ? '<span title="Milestone">🏁 ' + glassIssuesEsc(issue.milestone) + '</span>'
-          : '';
-        row.innerHTML =
-          '<div class="glass-issue-top">' +
-            '<span class="glass-issue-host glass-issue-host--' + glassIssuesEsc(issue.hostType) + '">' +
-              glassIssuesEsc(issue.hostType) + '</span>' +
-            '<span class="glass-issue-repo">' + glassIssuesEsc(issue.owner + '/' + issue.repo) + '</span>' +
-            '<span class="glass-issue-num">#' + glassIssuesEsc(String(issue.number)) + '</span>' +
-            priority +
-          '</div>' +
-          '<a class="glass-issue-title" href="' + glassIssuesEsc(issue.htmlUrl) +
-            '" target="_blank" rel="noopener noreferrer">' + glassIssuesEsc(issue.title) + '</a>' +
-          '<div class="glass-issue-meta">' +
-            '<span class="glass-issue-state glass-issue-state--' + glassIssuesEsc(issue.state) + '">' +
-              glassIssuesEsc(issue.state) + '</span>' +
-            '<span>' + glassIssuesEsc(author) + (assignees ? ' ' + glassIssuesEsc(assignees) : '') + '</span>' +
-            '<span title="Updated">↻ ' + glassIssuesEsc(glassIssuesRelativeTime(issue.updatedAt)) + '</span>' +
-            '<span title="Comments">💬 ' + glassIssuesEsc(String(issue.comments || 0)) + '</span>' +
-            milestone +
-          '</div>' +
-          (labels || moreLabels ? '<div class="glass-issue-labels">' + labels + moreLabels + '</div>' : '') +
-          '<div class="glass-issue-row-actions">' +
-            glassInboxHideBtnHtml(issue.host, issue.owner, issue.repo) +
-          '</div>';
-        glassInboxWireHideButton(row);
-        container.appendChild(row);
-      }
     }
 
     function glassRenderNotifications() {
@@ -5213,86 +5422,560 @@
       }
     }
 
-    function glassRenderMergeable() {
-      const container = document.getElementById('glass-issues-rows');
-      container.innerHTML = '';
-      const items = glassState.issues.mergeable.items || [];
-      const ready = items.filter((i) => i.ready);
-      const blocked = items.filter((i) => !i.ready);
-      function renderSection(label, list, isReady) {
-        if (!list.length) return;
-        const h = document.createElement('h3');
-        h.className = 'glass-inbox-group-h';
-        h.textContent = label + ' (' + list.length + ')';
-        container.appendChild(h);
-        list.forEach((m, i) => {
-          const row = document.createElement('article');
-          row.className = 'glass-issue-row glass-mergeable-row ' + (isReady ? 'is-ready' : 'is-blocked');
-          row.setAttribute('data-merge-id', m.id);
-          const reasons = (m.reasons || []).map((r) =>
-            '<span class="glass-reason-chip">' + glassIssuesEsc(r) + '</span>'
-          ).join(' ');
-          const checks = m.checksClean ? 'Checks' : 'Checks ✗';
-          const appr = m.approved ? 'Approved' : 'Approval ✗';
-          const behind = m.notBehind ? 'Up to date' : 'Behind';
-          row.innerHTML =
-            '<div class="glass-issue-top">' +
-              '<span class="glass-issue-host glass-issue-host--' + glassIssuesEsc(m.hostType) + '">' +
-                glassIssuesEsc(m.hostType) + '</span>' +
-              '<span class="glass-issue-repo">' + glassIssuesEsc(m.owner + '/' + m.repo) + '</span>' +
-              '<span class="glass-issue-num">#' + glassIssuesEsc(String(m.number)) + '</span>' +
-              '<span class="glass-kind-pill glass-kind-pill--pr">PR</span>' +
-            '</div>' +
-            '<a class="glass-issue-title" href="' + glassIssuesEsc(m.htmlUrl) +
-              '" target="_blank" rel="noopener noreferrer">' + glassIssuesEsc(m.title) + '</a>' +
-            '<div class="glass-issue-meta">' +
-              '<span>@' + glassIssuesEsc(m.author) + '</span>' +
-              '<span>' + glassIssuesEsc(checks) + '</span>' +
-              '<span>' + glassIssuesEsc(appr) + '</span>' +
-              '<span>' + glassIssuesEsc(behind) + '</span>' +
-              reasons +
-            '</div>' +
-            '<div class="glass-merge-actions">' +
-              (isReady
-                ? '<button type="button" class="btn btn-green glass-merge-btn">Merge</button>'
-                : '') +
-              '<a class="btn btn-ghost" href="' + glassIssuesEsc(m.htmlUrl) +
-                '" target="_blank" rel="noopener noreferrer">Open</a>' +
-              glassInboxHideBtnHtml(m.host, m.owner, m.repo) +
-            '</div>';
-          glassInboxWireHideButton(row);
-          const mergeBtn = row.querySelector('.glass-merge-btn');
-          if (mergeBtn) {
-            mergeBtn.addEventListener('click', (e) => {
-              e.preventDefault();
-              glassOpenMergeModal(m);
-            });
+    // ── Board + Merge order ──────────────────────────────────────────────────
+
+    const GLASS_REASON_LABELS = {
+      checks_failing: 'checks failing',
+      checks_pending: 'checks pending',
+      conflict: 'merge conflict',
+      changes_requested: 'changes requested',
+      needs_review: 'waiting on review',
+      behind: 'behind base',
+    };
+    const GLASS_REASON_KEYS = {
+      checks_failing: 'checks-failing',
+      checks_pending: 'checks-pending',
+      conflict: 'conflict',
+      changes_requested: 'changes-requested',
+      needs_review: 'review',
+      behind: 'behind',
+      old: 'old',
+    };
+    const GLASS_MODE_ANSWERS = {
+      'board': 'What is open and what is stuck, repo by repo',
+      'merge-order': 'Which merge request to merge first',
+      'notifications': 'What mentioned, assigned or pinged you',
+      'mine': 'What needs you: reviews first, then your issues and PRs',
+    };
+
+    function glassSafeUrl(u) {
+      const s = String(u || '');
+      return /^https?:\/\//i.test(s) ? s : '#';
+    }
+
+    function glassMrKey(x) {
+      return [
+        x.hostType,
+        String(x.host || '').toLowerCase(),
+        String(x.owner || '').toLowerCase(),
+        String(x.repo || '').toLowerCase(),
+        x.number,
+      ].join('|');
+    }
+
+    function glassAgeLabel(days) {
+      const d = days | 0;
+      return d <= 0 ? 'today' : d + 'd';
+    }
+
+    function glassPlural(n, one, many) {
+      return n + ' ' + (n === 1 ? one : many);
+    }
+
+    function glassMrRowHtml(mr, opts) {
+      opts = opts || {};
+      const esc = glassIssuesEsc;
+      const cls = ['glass-mr-row'];
+      if (opts.rank != null) cls.push('glass-mo-row');
+      if (mr.stuck) cls.push('is-stuck');
+      else if (opts.ready) cls.push('is-ready');
+      if (mr.mine) cls.push('is-mine');
+      if (mr.draft) cls.push('is-draft');
+      const badges = [];
+      if (mr.bot) badges.push('<span class="glass-badge-shepard">◆ Shepard</span>');
+      if (mr.mine) badges.push('<span class="glass-badge-mine">Mine</span>');
+      if (mr.draft) badges.push('<span class="glass-badge-draft">Draft</span>');
+      const chips = (mr.reasons || []).filter((r) => r !== 'draft').map((r) => {
+        const label = r === 'old'
+          ? 'old ' + (mr.ageDays | 0) + 'd'
+          : (GLASS_REASON_LABELS[r] || String(r).replace(/_/g, ' '));
+        return '<span class="glass-chip-reason" data-reason="' + esc(GLASS_REASON_KEYS[r] || '') + '">' +
+          esc(label) + '</span>';
+      });
+      const key = glassMrKey(mr);
+      return '<article class="' + cls.join(' ') + '" data-mr-key="' + esc(key) + '">' +
+        (opts.rank != null ? '<span class="glass-mo-rank" aria-label="Rank">' + esc(String(opts.rank)) + '</span>' : '') +
+        '<a class="glass-mr-title" href="' + esc(glassSafeUrl(mr.htmlUrl)) +
+          '" target="_blank" rel="noopener noreferrer">' + esc(mr.title) + '</a>' +
+        '<div class="glass-mr-meta">' +
+          '<span class="glass-mr-num">#' + esc(String(mr.number)) + '</span>' +
+          (mr.author ? '<span class="glass-mr-author">@' + esc(mr.author) + '</span>' : '') +
+          '<span class="glass-mr-age" title="' + esc(mr.createdAt) + '">opened ' + esc(glassAgeLabel(mr.ageDays)) + '</span>' +
+          (opts.repoName ? '<span class="glass-mo-repo">' + esc(opts.repoName) + '</span>' : '') +
+        '</div>' +
+        (badges.length || chips.length
+          ? '<div class="glass-mr-reasons">' + badges.join('') + chips.join('') + '</div>'
+          : '') +
+        (opts.ready
+          ? '<button type="button" class="btn btn-green glass-mo-merge" data-action="merge" data-key="' + esc(key) + '">Merge</button>'
+          : '') +
+        '</article>';
+    }
+
+    function glassIssueRowCompactHtml(i) {
+      const esc = glassIssuesEsc;
+      const labels = (i.labels || []).slice(0, 3).map((l) =>
+        '<span class="glass-issue-label">' + esc(l) + '</span>').join('');
+      return '<article class="glass-issue-row glass-issue-row--compact">' +
+        '<a class="glass-issue-title" href="' + esc(glassSafeUrl(i.htmlUrl)) +
+          '" target="_blank" rel="noopener noreferrer">' + esc(i.title) + '</a>' +
+        '<div class="glass-issue-meta">' +
+          '<span class="glass-issue-num">#' + esc(String(i.number)) + '</span>' +
+          (i.author ? '<span>@' + esc(i.author) + '</span>' : '') +
+          '<span title="' + esc(i.createdAt) + '">' + esc(glassAgeLabel(i.ageDays)) + '</span>' +
+          (i.mine ? '<span class="glass-badge-mine">Mine</span>' : '') +
+          labels +
+        '</div></article>';
+    }
+
+    function glassBoardSkeletonHtml() {
+      let h = '<p class="glass-board-note" role="status">Loading open merge requests and issues…</p>';
+      for (let i = 0; i < 3; i++) {
+        h += '<div class="glass-board-band glass-board-skel" aria-hidden="true">' +
+          '<div class="glass-skel-bar"></div>' +
+          '<div class="glass-board-lanes"><div class="glass-skel-block"></div><div class="glass-skel-block"></div></div>' +
+          '</div>';
+      }
+      return h;
+    }
+
+    function glassBoardShowSkeleton() {
+      const html = glassBoardSkeletonHtml();
+      const mode = glassState.issues.mode;
+      if (mode === 'board') document.getElementById('glass-board').innerHTML = html;
+      else if (mode === 'merge-order') document.getElementById('glass-mo-body').innerHTML = html;
+    }
+
+    function glassBoardVisibleRepos() {
+      const st = glassState.issues.board;
+      const repos = (st.data && st.data.repos) || [];
+      if (st.focus && repos.some((r) => r.key === st.focus)) {
+        return repos.filter((r) => r.key === st.focus);
+      }
+      st.focus = '';
+      return repos;
+    }
+
+    function glassBoardFailHtml(cls, tail) {
+      const st = glassState.issues.board;
+      return '<div class="' + cls + '" role="alert">' +
+        'Couldn’t load the board. Check your connection or host sign-in, then ' +
+        '<button type="button" data-action="retry">Refresh</button>.' +
+        (st.error ? '<code>' + glassIssuesEsc(st.error) + '</code>' : '') + (tail || '') + '</div>';
+    }
+
+    function glassBoardNoReposHtml() {
+      return '<div class="glass-board-calm">No repositories to watch yet. ' +
+        '<button type="button" data-action="settings">Choose repositories to watch in Settings.</button></div>';
+    }
+
+    /** Returns the HTML to show instead of the body when data is missing, or null. */
+    function glassBoardGateHtml(failCls) {
+      const st = glassState.issues.board;
+      const data = st.data;
+      if (!data) return st.error ? glassBoardFailHtml(failCls) : glassBoardSkeletonHtml();
+      if (!(data.repos || []).length) {
+        return (data.failures || []).length ? glassBoardFailHtml(failCls) : glassBoardNoReposHtml();
+      }
+      return null;
+    }
+
+    function glassBoardRepoLinks(r) {
+      const base = r.webUrl ? glassSafeUrl(r.webUrl).replace(/\/+$/, '') : '';
+      const gl = r.hostType === 'gitlab';
+      return {
+        issues: base ? base + (gl ? '/-/issues' : '/issues') : '',
+        mrs: base ? base + (gl ? '/-/merge_requests' : '/pulls') : '',
+      };
+    }
+
+    function glassBoardBandHtml(r, ctx) {
+      const esc = glassIssuesEsc;
+      const h = r.health || { openMrs: 0, stuck: 0, oldestDays: null, openIssues: 0, botMrs: 0 };
+      const healthy = !r.error && h.stuck === 0;
+      const cls = ['glass-board-band'];
+      if (r.error) cls.push('is-error');
+      else if (healthy) cls.push('is-healthy');
+      else cls.push('is-stuck');
+      if (ctx.focus === r.key) cls.push('is-focused');
+      const name = ctx.dup[r.repo] ? r.owner + '/' + r.repo : r.repo;
+      const id = 'glass-band-' + ctx.index;
+      const parts = [h.openMrs === 0 ? 'no open MRs' : glassPlural(h.openMrs, 'open MR', 'open MRs')];
+      if (h.stuck > 0) parts.push('<span class="glass-board-health-stuck">' + esc(String(h.stuck)) + ' stuck</span>');
+      if (h.openMrs > 0 && h.oldestDays != null) parts.push('oldest ' + esc(String(h.oldestDays)) + 'd');
+      const healthHtml = (healthy ? '<span class="glass-board-health-ok">● healthy</span> · ' : '') + parts.join(' · ');
+      const nameHtml = r.webUrl
+        ? '<a class="glass-board-repo" id="' + id + '" href="' + esc(glassSafeUrl(r.webUrl)) +
+          '" target="_blank" rel="noopener noreferrer" title="' + esc(r.owner + '/' + r.repo) + '">' + esc(name) + '</a>'
+        : '<span class="glass-board-repo" id="' + id + '" title="' + esc(r.owner + '/' + r.repo) + '">' + esc(name) + '</span>';
+      const dataAttrs = 'data-key="' + esc(r.key) + '" data-host="' + esc(r.host) +
+        '" data-owner="' + esc(r.owner) + '" data-repo="' + esc(r.repo) + '"';
+      const links = glassBoardRepoLinks(r);
+      const mrs = ctx.stuckOnly ? (r.mrs || []).filter((m) => m.stuck) : (r.mrs || []);
+      let lanes = '';
+      if (mrs.length || (r.issues || []).length || !r.error) {
+        let mrLane = '<div class="glass-board-lane" data-lane="mrs">' +
+          '<h4 class="glass-board-lane-h">Open MRs <span class="glass-board-lane-count">' + esc(String(mrs.length)) + '</span></h4>';
+        mrLane += mrs.length
+          ? mrs.map((m) => glassMrRowHtml(m, {})).join('')
+          : '<div class="glass-board-lane-empty">' + (ctx.stuckOnly ? 'Nothing stuck' : 'No open MRs') + '</div>';
+        if (r.mrsTruncated) {
+          mrLane += '<p class="glass-board-lane-more">Showing the first ' + esc(String((r.mrs || []).length)) + ' MRs' +
+            (links.mrs ? ' · <a href="' + esc(links.mrs) + '" target="_blank" rel="noopener noreferrer">see all merge requests</a>' : '') + '</p>';
+        }
+        mrLane += '</div>';
+        let issueLane = '';
+        if (!ctx.stuckOnly) {
+          const issues = r.issues || [];
+          issueLane = '<div class="glass-board-lane" data-lane="issues">' +
+            '<h4 class="glass-board-lane-h">Open issues <span class="glass-board-lane-count">' + esc(String(issues.length + (r.moreIssues | 0))) + '</span></h4>' +
+            (issues.length
+              ? issues.map(glassIssueRowCompactHtml).join('')
+              : '<div class="glass-board-lane-empty">No open issues</div>');
+          if (r.moreIssues > 0) {
+            issueLane += '<p class="glass-board-lane-more">' + glassPlural(r.moreIssues | 0, 'more issue', 'more issues') +
+              (links.issues ? ' · <a href="' + esc(links.issues) + '" target="_blank" rel="noopener noreferrer">open the issues page</a>' : '') + '</p>';
           }
-          container.appendChild(row);
+          issueLane += '</div>';
+        }
+        lanes = '<div class="glass-board-lanes' + (ctx.stuckOnly ? ' is-single' : '') + '">' + mrLane + issueLane + '</div>';
+      }
+      const errHtml = r.error
+        ? '<div class="glass-board-fail" role="alert">Couldn’t load: ' + esc(r.error) +
+          ' · <button type="button" data-action="retry">Retry</button></div>'
+        : '';
+      return '<section class="' + cls.join(' ') + '" aria-labelledby="' + id + '" ' + dataAttrs + '>' +
+        '<div class="glass-board-band-h">' + nameHtml +
+          '<span class="glass-issue-host glass-issue-host--' + esc(r.hostType) + '">' + esc(r.hostType === 'gitlab' ? r.host : 'github') + '</span>' +
+          '<span class="glass-board-health">' + healthHtml + '</span>' +
+          '<span class="glass-board-band-actions">' +
+            '<button type="button" class="glass-board-focus-btn" data-action="focus" aria-pressed="' +
+              (ctx.focus === r.key ? 'true' : 'false') + '" title="Show only this repo in Board and Merge order">Focus</button>' +
+            '<button type="button" class="glass-board-hide-btn" data-action="hide" title="Hide this repository from Inbox">Hide</button>' +
+          '</span>' +
+        '</div>' + errHtml + lanes + '</section>';
+    }
+
+    function glassBoardRenderFailureBanner() {
+      const st = glassState.issues.board;
+      const data = st.data;
+      if (!data) { glassIssuesRenderFailures([]); return; }
+      const failures = (data.failures || []).slice();
+      const errored = (data.repos || []).filter((r) => r.error);
+      for (const r of errored) {
+        const dupe = failures.some((f) => f.remote === r.key || f.remote === r.owner + '/' + r.repo);
+        if (!dupe) failures.push({ remote: r.owner + '/' + r.repo, host: r.host, message: r.error });
+      }
+      glassIssuesRenderFailures(failures);
+      if (failures.length) {
+        const total = (data.repos || []).length;
+        document.getElementById('glass-issues-fail-summary').textContent = errored.length
+          ? 'Couldn’t reach ' + errored.length + ' of ' + total + ' repos. Showing the rest.'
+          : failures.length + (failures.length === 1 ? ' source' : ' sources') + ' failed to load';
+      }
+    }
+
+    function glassRenderBoard() {
+      const el = document.getElementById('glass-board');
+      const st = glassState.issues.board;
+      const gate = glassBoardGateHtml('glass-board-fail');
+      if (gate) { el.innerHTML = gate; return; }
+      const repos = glassBoardVisibleRepos();
+      const withItems = repos.filter((r) => (r.mrs || []).length || (r.issues || []).length || r.error);
+      const quiet = repos.filter((r) => !((r.mrs || []).length || (r.issues || []).length || r.error));
+      const totalStuck = repos.reduce((n, r) => n + ((r.health && r.health.stuck) || 0), 0);
+      const totalMrs = repos.reduce((n, r) => n + ((r.health && r.health.openMrs) || 0), 0);
+      const bots = repos.reduce((n, r) => n + ((r.health && r.health.botMrs) || 0), 0);
+      const bands = st.stuckOnly
+        ? withItems.filter((r) => r.error || (r.health && r.health.stuck > 0))
+        : withItems;
+      const names = {};
+      for (const r of repos) names[r.repo] = (names[r.repo] || 0) + 1;
+      const dup = {};
+      for (const k in names) if (names[k] > 1) dup[k] = true;
+      let html = '';
+      if (totalMrs > 0 && totalStuck === 0) {
+        html += '<p class="glass-board-note">Nothing stuck.' +
+          (bots > 0 ? ' ' + glassPlural(bots, 'MR is', 'MRs are') + ' waiting on Shepard.' : '') + '</p>';
+      }
+      if (!withItems.length) {
+        html += '<div class="glass-board-calm"><div>All clear. No open merge requests or issues in ' +
+          glassPlural(repos.length, 'repo', 'repos') + '. Shepard is keeping up.</div>' +
+          '<div class="glass-board-calm-sub">Last checked ' + glassIssuesEsc(glassIssuesRelativeTime(st.data.generatedAt) || 'just now') +
+          ' · <button type="button" data-action="retry">Refresh</button></div></div>';
+      } else {
+        bands.forEach((r, i) => {
+          html += glassBoardBandHtml(r, { index: i, dup: dup, focus: st.focus, stuckOnly: st.stuckOnly });
         });
       }
-      renderSection('Ready to merge', ready, true);
-      renderSection('Blocked', blocked, false);
+      if (quiet.length) {
+        html += '<details class="glass-board-quiet"><summary>Quiet repos (' + quiet.length + ')</summary>' +
+          '<div class="glass-board-quiet-list">' +
+          quiet.map((r) => {
+            const label = dup[r.repo] ? r.owner + '/' + r.repo : r.repo;
+            return r.webUrl
+              ? '<a class="glass-board-quiet-item" href="' + glassIssuesEsc(glassSafeUrl(r.webUrl)) +
+                '" target="_blank" rel="noopener noreferrer">' + glassIssuesEsc(label) + '</a>'
+              : '<span class="glass-board-quiet-item">' + glassIssuesEsc(label) + '</span>';
+          }).join('') +
+          '</div></details>';
+      }
+      el.innerHTML = html;
     }
+
+    function glassMoIsReady(mr) {
+      const ready = glassState.issues.mo.ready;
+      return !!(ready && !mr.stuck && ready.has(glassMrKey(mr)));
+    }
+
+    function glassRenderMergeOrder() {
+      const el = document.getElementById('glass-mo-body');
+      const st = glassState.issues;
+      const mo = st.mo;
+      const gate = glassBoardGateHtml('glass-mo-fail');
+      if (gate) { el.innerHTML = gate; return; }
+      const all = [];
+      for (const r of glassBoardVisibleRepos()) {
+        for (const m of (r.mrs || [])) all.push({ mr: m, repo: r });
+      }
+      if (!all.length) {
+        el.innerHTML = '<div class="glass-mo-empty">No open merge requests. Nothing to merge.</div>';
+        return;
+      }
+      const f = mo.filters;
+      let rows = all.filter((x) =>
+        (!f.mine || x.mr.mine) &&
+        (!f.shepard || x.mr.bot) &&
+        (!f.stuck || x.mr.stuck) &&
+        (!f.ready || glassMoIsReady(x.mr)));
+      if (!rows.length) {
+        let msg = 'No merge requests match these filters.';
+        const active = ['ready', 'mine', 'shepard', 'stuck'].filter((k) => f[k]);
+        if (active.length === 1) {
+          if (active[0] === 'ready') {
+            const waiting = all.filter((x) => !glassMoIsReady(x.mr)).length;
+            msg = mo.readyLoading
+              ? 'Checking which merge requests are ready…'
+              : 'Nothing is ready to merge yet. ' + glassPlural(waiting, 'MR is', 'MRs are') + ' waiting on checks or review.';
+          } else if (active[0] === 'mine') msg = 'You have no open merge requests.';
+          else if (active[0] === 'shepard') msg = 'Shepard has no open MRs right now.';
+          else msg = 'Nothing is stuck.';
+        }
+        el.innerHTML = '<div class="glass-mo-empty">' + glassIssuesEsc(msg) + '</div>';
+        return;
+      }
+      const dir = mo.order === 'newest' ? -1 : 1;
+      const byAge = (a, b) => dir * (Date.parse(a.mr.createdAt) - Date.parse(b.mr.createdAt));
+      const dupNames = {};
+      for (const x of all) dupNames[x.repo.repo] = (dupNames[x.repo.repo] || 0) + 1;
+      let rank = 0;
+      const rowHtml = (x) => {
+        rank += 1;
+        return glassMrRowHtml(x.mr, {
+          rank: rank,
+          ready: glassMoIsReady(x.mr),
+          repoName: dupNames[x.repo.repo] > 1 ? x.repo.owner + '/' + x.repo.repo : x.repo.repo,
+        });
+      };
+      let html = '';
+      if (mo.groupStuck) {
+        const stuck = rows.filter((x) => x.mr.stuck).sort(byAge);
+        const ready = rows.filter((x) => !x.mr.stuck && glassMoIsReady(x.mr)).sort(byAge);
+        const waiting = rows.filter((x) => !x.mr.stuck && !glassMoIsReady(x.mr)).sort(byAge);
+        for (const g of [['Stuck', stuck], ['Ready', ready], ['Waiting', waiting]]) {
+          if (!g[1].length) continue;
+          html += '<h3 class="glass-mo-group-h">' + g[0] + ' · ' + g[1].length + '</h3>' + g[1].map(rowHtml).join('');
+        }
+      } else {
+        html = rows.sort(byAge).map(rowHtml).join('');
+      }
+      el.innerHTML = html;
+    }
+
+    function glassBoardSummaryText() {
+      const st = glassState.issues.board;
+      if (!st.data || !(st.data.repos || []).length) return '';
+      const repos = glassBoardVisibleRepos();
+      const mrs = repos.reduce((n, r) => n + ((r.health && r.health.openMrs) || 0), 0);
+      const stuck = repos.reduce((n, r) => n + ((r.health && r.health.stuck) || 0), 0);
+      return glassPlural(repos.length, 'repo', 'repos') + ' · ' +
+        glassPlural(mrs, 'open MR', 'open MRs') + ' · ' + stuck + ' stuck';
+    }
+
+    function glassInboxSyncHint() {
+      const mode = glassState.issues.mode;
+      let text = GLASS_MODE_ANSWERS[mode] || '';
+      if (mode === 'board' || mode === 'merge-order') {
+        const sum = glassBoardSummaryText();
+        if (sum) text += ' · ' + sum;
+      }
+      const el = document.getElementById('glass-inbox-hint');
+      if (el) el.textContent = text;
+    }
+
+    function glassBoardSyncFocusBar() {
+      const st = glassState.issues;
+      const bar = document.getElementById('glass-focus-bar');
+      const isBoard = st.mode === 'board' || st.mode === 'merge-order';
+      const focused = isBoard && st.board.focus
+        ? ((st.board.data && st.board.data.repos) || []).find((r) => r.key === st.board.focus)
+        : null;
+      bar.hidden = !focused;
+      if (focused) {
+        document.getElementById('glass-focus-name').textContent = focused.owner + '/' + focused.repo;
+      }
+    }
+
+    function glassBoardRenderCurrent() {
+      const mode = glassState.issues.mode;
+      if (mode === 'board') {
+        glassRenderBoard();
+        glassBoardRenderFailureBanner();
+      } else if (mode === 'merge-order') {
+        glassRenderMergeOrder();
+        glassBoardRenderFailureBanner();
+      }
+      glassInboxSyncHint();
+      glassBoardSyncFocusBar();
+      glassInboxSyncChrome();
+    }
+
+    function glassBoardSetFocus(key) {
+      const st = glassState.issues.board;
+      st.focus = (st.focus === key) ? '' : key;
+      glassBoardRenderCurrent();
+      if (st.focus) {
+        const band = document.querySelector('.glass-board-band[data-key="' + (window.CSS && CSS.escape ? CSS.escape(st.focus) : st.focus) + '"]');
+        if (band && band.scrollIntoView) band.scrollIntoView({ block: 'nearest' });
+      }
+    }
+
+    async function glassLoadBoard(opts) {
+      opts = opts || {};
+      const st = glassState.issues;
+      try {
+        const data = await glassApi('/api/board' + (opts.force ? '?force=1' : ''));
+        st.board.data = data;
+        st.board.error = '';
+        st.loaded = true;
+        st.failures = data.failures || [];
+        if (typeof data.hiddenCount === 'number') st.hiddenCount = data.hiddenCount;
+        glassInboxSyncHiddenChrome();
+      } catch (e) {
+        st.board.error = e.message || 'Request failed';
+        glassBoardRenderCurrent();
+        throw e;
+      }
+      glassBoardRenderCurrent();
+      if (st.mode === 'merge-order') glassLoadMoReady({ force: !!opts.force });
+    }
+
+    async function glassLoadMoReady(opts) {
+      opts = opts || {};
+      const mo = glassState.issues.mo;
+      if (mo.readyLoading) return;
+      if (!opts.force && mo.ready && Date.now() - mo.readyAt < 60000) return;
+      mo.readyLoading = true;
+      mo.readyError = '';
+      glassMoSyncStatus();
+      try {
+        const data = await glassApi('/api/mergeable' + (opts.force ? '?force=1' : ''));
+        const map = new Map();
+        for (const row of (data.items || [])) {
+          if (row.ready) map.set(glassMrKey(row), row);
+        }
+        mo.ready = map;
+        mo.readyAt = Date.now();
+      } catch (e) {
+        mo.readyError = e.message || 'failed';
+      } finally {
+        mo.readyLoading = false;
+        glassMoSyncStatus();
+        if (glassState.issues.mode === 'merge-order' && glassState.issues.board.data) glassRenderMergeOrder();
+      }
+    }
+
+    function glassMoSyncStatus() {
+      const mo = glassState.issues.mo;
+      const el = document.getElementById('glass-mo-status');
+      if (!el) return;
+      el.textContent = mo.readyLoading
+        ? 'Checking which are ready…'
+        : (mo.readyError ? 'Couldn’t check which are ready: ' + mo.readyError : '');
+    }
+
+    function glassBoardWireEvents() {
+      const onClick = (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        if (action === 'retry') {
+          glassInboxLoad({ force: true });
+        } else if (action === 'settings') {
+          const s = document.getElementById('glass-settings-btn');
+          if (s) s.click();
+        } else if (action === 'focus') {
+          const band = btn.closest('.glass-board-band');
+          if (band) glassBoardSetFocus(band.dataset.key);
+        } else if (action === 'hide') {
+          const band = btn.closest('.glass-board-band');
+          if (band) glassInboxHideRepo(band.dataset.host, band.dataset.owner, band.dataset.repo);
+        } else if (action === 'merge') {
+          const row = glassState.issues.mo.ready && glassState.issues.mo.ready.get(btn.dataset.key);
+          if (row) glassOpenMergeModal(row);
+        }
+      };
+      document.getElementById('glass-board').addEventListener('click', onClick);
+      document.getElementById('glass-mo-body').addEventListener('click', onClick);
+
+      document.getElementById('glass-chip-stuckonly').addEventListener('click', () => {
+        const b = glassState.issues.board;
+        b.stuckOnly = !b.stuckOnly;
+        glassBoardRenderCurrent();
+      });
+      document.querySelectorAll('[data-mo-filter]').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          const f = glassState.issues.mo.filters;
+          const k = chip.dataset.moFilter;
+          f[k] = !f[k];
+          glassBoardRenderCurrent();
+        });
+      });
+      document.getElementById('glass-mo-sort').addEventListener('click', () => {
+        const mo = glassState.issues.mo;
+        mo.order = mo.order === 'oldest' ? 'newest' : 'oldest';
+        glassBoardRenderCurrent();
+      });
+      document.getElementById('glass-mo-group').addEventListener('click', () => {
+        const mo = glassState.issues.mo;
+        mo.groupStuck = !mo.groupStuck;
+        glassBoardRenderCurrent();
+      });
+      document.getElementById('glass-focus-clear').addEventListener('click', () => {
+        glassState.issues.board.focus = '';
+        glassBoardRenderCurrent();
+      });
+    }
+    glassBoardWireEvents();
 
     function glassIssuesUpdateEmpty() {
       const empty = document.getElementById('glass-issues-empty');
       const emptyMsg = document.getElementById('glass-issues-empty-msg');
       const emptyHidden = document.getElementById('glass-inbox-empty-hidden');
-      const more = document.getElementById('glass-issues-more');
       const mode = glassState.issues.mode;
-      let n = 0;
-      if (mode === 'notifications') n = glassState.issues.notif.flat.length;
-      else if (mode === 'work') n = glassState.issues.work.items.length;
-      else if (mode === 'mergeable') n = glassState.issues.mergeable.items.length;
-      else n = glassState.issues.items.length;
+      if (mode === 'board' || mode === 'merge-order') {
+        empty.hidden = true;
+        glassInboxSyncHiddenChrome();
+        return;
+      }
+      const n = mode === 'notifications'
+        ? glassState.issues.notif.flat.length
+        : glassState.issues.work.items.length;
       empty.hidden = n > 0 || glassState.issues.loading;
       if (n === 0 && !glassState.issues.loading) {
-        let msg = 'No issues match these filters.';
-        if (mode === 'notifications') msg = 'Inbox zero. Enable CI or Watching chips if you expect more.';
-        else if (mode === 'work') msg = 'No attention items on local remotes.';
-        else if (mode === 'mergeable') msg = 'Nothing green to ship right now.';
-        else if (mode === 'repo' && !glassState.issues.repo) msg = 'Pick a repository for This repo mode.';
+        const msg = mode === 'notifications'
+          ? 'Inbox zero. Enable CI or Watching chips if you expect more.'
+          : 'No attention items on local remotes.';
         if (emptyMsg) emptyMsg.textContent = msg;
         else empty.textContent = msg;
         const hc = glassState.issues.hiddenCount | 0;
@@ -5301,7 +5984,7 @@
             emptyHidden.hidden = false;
             emptyHidden.innerHTML =
               glassIssuesEsc(String(hc)) + ' repo' + (hc === 1 ? '' : 's') +
-              ' hidden · <button type="button" id="glass-inbox-empty-manage">Manage</button>';
+              ' hidden \u00B7 <button type="button" id="glass-inbox-empty-manage">Manage</button>';
             const manage = document.getElementById('glass-inbox-empty-manage');
             if (manage) manage.addEventListener('click', glassOpenInboxHiddenPanel);
           } else {
@@ -5310,7 +5993,6 @@
           }
         }
       }
-      more.hidden = !(mode === 'all' || mode === 'repo') || !glassState.issues.hasMore;
       glassInboxSyncHiddenChrome();
     }
 
@@ -5366,90 +6048,42 @@
       glassRenderWork();
     }
 
-    async function glassLoadMergeable(opts) {
-      opts = opts || {};
-      const params = new URLSearchParams();
-      if (opts.force) params.set('force', '1');
-      const data = await glassApi('/api/mergeable?' + params.toString());
-      glassState.issues.loaded = true;
-      glassState.issues.failures = data.failures || [];
-      if (typeof data.hiddenCount === 'number') glassState.issues.hiddenCount = data.hiddenCount;
-      glassState.issues.mergeable.items = data.items || [];
-      glassIssuesRenderFailures(data.failures || []);
-      glassInboxSyncHiddenChrome();
-      glassRenderMergeable();
-    }
-
-    async function glassLoadIssuesBrowse(opts) {
-      opts = opts || {};
-      const st = glassState.issues;
-      if (st.mode === 'repo' && !st.repo) {
-        document.getElementById('glass-issues-rows').innerHTML = '';
-        st.items = [];
-        st.hasMore = false;
-        glassIssuesUpdateEmpty();
-        return;
-      }
-      const append = !!opts.append;
-      if (!append) st.page = 1;
-      const params = new URLSearchParams();
-      params.set('mode', st.mode === 'repo' ? 'repo' : 'all');
-      params.set('state', st.state);
-      params.set('page', String(st.page));
-      params.set('perPage', '50');
-      params.set('host', st.host || 'all');
-      params.set('updated', st.updated || 'any');
-      if (st.repo) params.set('repo', st.repo);
-      if (st.label) params.set('label', st.label);
-      if (st.author) params.set('author', st.author.replace(/^@/, ''));
-      if (st.assignee) params.set('assignee', st.assignee.replace(/^@/, ''));
-      if (opts.force) params.set('force', '1');
-      const data = await glassApi('/api/issues?' + params.toString());
-      st.loaded = true;
-      st.hasMore = !!data.hasMore;
-      st.totalMatched = data.totalMatched || 0;
-      st.failures = data.failures || [];
-      st.remotes = data.remotes || [];
-      if (typeof data.hiddenCount === 'number') st.hiddenCount = data.hiddenCount;
-      glassInboxSyncHiddenChrome();
-      glassIssuesFillRepoSelect(st.remotes);
-      glassIssuesRenderFailures(st.failures);
-      const batch = data.issues || [];
-      if (append) {
-        st.items = st.items.concat(batch);
-        glassIssuesRenderRows(batch, true);
-      } else {
-        st.items = batch;
-        glassIssuesRenderRows(batch, false);
-      }
-    }
-
     async function glassInboxLoad(opts) {
       opts = opts || {};
-      if (glassState.issues.loading && !opts.silent) return;
-      glassState.issues.loading = true;
+      const st = glassState.issues;
+      if (st.loading && !opts.silent) return;
+      st.loading = true;
+      const mode = st.mode;
+      const isBoardMode = mode === 'board' || mode === 'merge-order';
       glassInboxSyncChrome();
       const loading = document.getElementById('glass-issues-loading');
-      if (!opts.append) {
-        if (!opts.silent) {
+      const refreshBtn = document.getElementById('glass-issues-refresh');
+      if (!opts.silent) {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = 'Refreshing\u2026';
+        if (isBoardMode) {
+          if (!st.board.data) glassBoardShowSkeleton();
+        } else {
           loading.hidden = false;
           document.getElementById('glass-issues-empty').hidden = true;
           document.getElementById('glass-issues-rows').innerHTML = '';
         }
       }
       try {
-        const mode = glassState.issues.mode;
         if (mode === 'notifications') await glassLoadNotifications(opts);
-        else if (mode === 'work') await glassLoadWork(opts);
-        else if (mode === 'mergeable') await glassLoadMergeable(opts);
-        else await glassLoadIssuesBrowse(opts);
+        else if (mode === 'mine') await glassLoadWork(opts);
+        else await glassLoadBoard(opts);
       } catch (e) {
         if (!opts.silent) showGlassBanner('Inbox failed: ' + e.message, 'error');
       } finally {
-        glassState.issues.loading = false;
+        st.loading = false;
         loading.hidden = true;
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = 'Refresh';
         glassInboxSyncChrome();
         glassIssuesUpdateEmpty();
+        // The mode changed while this load was in flight: load the new one.
+        if (st.mode !== mode && !opts.silent) glassInboxLoad({ force: false });
       }
     }
 
@@ -5609,13 +6243,16 @@
       }
     });
 
-    document.querySelectorAll('.glass-issues-mode').forEach((btn) => {
+    document.querySelectorAll('.glass-inbox-mode').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const mode = btn.dataset.mode;
-        if (!mode || mode === glassState.issues.mode) return;
+        const mode = glassInboxNormalizeMode(btn.dataset.mode);
+        if (mode === glassState.issues.mode) return;
         glassState.issues.mode = mode;
+        glassInboxStoreMode(mode);
+        const isBoardMode = mode === 'board' || mode === 'merge-order';
+        if (!isBoardMode) glassIssuesRenderFailures([]);
         // Work warm: paint immediately from SPA memory, silent revalidate if stale.
-        if (mode === 'work' && glassWarmHasWork()) {
+        if (mode === 'mine' && glassWarmHasWork()) {
           glassState.issues.loaded = true;
           glassInboxSyncChrome();
           glassRenderWork();
@@ -5625,6 +6262,14 @@
           if (glassWarmIsStale(glassState.issues.work.warmedAt)) {
             glassInboxLoad({ force: false, silent: true });
           }
+          return;
+        }
+        // Board and Merge order share one dataset: paint from memory, then revalidate.
+        if (isBoardMode && glassState.issues.board.data) {
+          glassState.issues.loaded = true;
+          glassBoardRenderCurrent();
+          glassIssuesUpdateEmpty();
+          glassInboxLoad({ force: false, silent: true });
           return;
         }
         glassState.issues.loaded = false;
@@ -5647,42 +6292,6 @@
     document.getElementById('glass-inbox-hidden-btn').addEventListener('click', glassOpenInboxHiddenPanel);
     document.getElementById('glass-close-inbox-hidden-btn').addEventListener('click', glassCloseInboxHiddenPanel);
     document.getElementById('glass-inbox-hidden-backdrop').addEventListener('click', glassCloseInboxHiddenPanel);
-
-    document.getElementById('glass-issues-load-more').addEventListener('click', () => {
-      glassState.issues.page += 1;
-      glassInboxLoad({ append: true });
-    });
-
-    document.getElementById('glass-issues-repo').addEventListener('change', (e) => {
-      glassState.issues.repo = e.target.value || '';
-      glassInboxLoad({ force: false });
-    });
-    document.getElementById('glass-issues-host').addEventListener('change', (e) => {
-      glassState.issues.host = e.target.value || 'all';
-      glassInboxLoad({ force: false });
-    });
-    document.getElementById('glass-issues-updated').addEventListener('change', (e) => {
-      glassState.issues.updated = e.target.value || 'any';
-      glassInboxLoad({ force: false });
-    });
-
-    let glassIssuesFilterTimer = null;
-    function glassIssuesDebouncedReload() {
-      clearTimeout(glassIssuesFilterTimer);
-      glassIssuesFilterTimer = setTimeout(() => glassInboxLoad({ force: false }), 300);
-    }
-    document.getElementById('glass-issues-label').addEventListener('input', (e) => {
-      glassState.issues.label = e.target.value.trim();
-      glassIssuesDebouncedReload();
-    });
-    document.getElementById('glass-issues-author').addEventListener('input', (e) => {
-      glassState.issues.author = e.target.value.trim();
-      glassIssuesDebouncedReload();
-    });
-    document.getElementById('glass-issues-assignee').addEventListener('input', (e) => {
-      glassState.issues.assignee = e.target.value.trim();
-      glassIssuesDebouncedReload();
-    });
 
     function glassToggleChip(id, key) {
       document.getElementById(id).addEventListener('click', () => {
@@ -5718,6 +6327,11 @@
     document.addEventListener('keydown', (e) => {
       if (glassState.activeView !== 'issues') return;
       if (e.target.matches('input, textarea, select')) return;
+      if (e.key === 'Escape' && document.getElementById('glass-merge-modal').classList.contains('open')) {
+        e.preventDefault();
+        glassCloseMergeModal();
+        return;
+      }
       const mode = glassState.issues.mode;
       if (mode === 'notifications') {
         const flat = glassState.issues.notif.flat;
@@ -5759,20 +6373,6 @@
           e.preventDefault();
           const row = glassNotifFocusedRow();
           if (row) glassNotifTriage('read', [row]);
-        }
-      } else if (mode === 'mergeable') {
-        const mergeOpen = document.getElementById('glass-merge-modal').classList.contains('open');
-        if (e.key === 'Escape') {
-          if (mergeOpen) {
-            e.preventDefault();
-            glassCloseMergeModal();
-          }
-        } else if (e.key === 'Enter' && !mergeOpen) {
-          const ready = (glassState.issues.mergeable.items || []).filter((i) => i.ready);
-          if (ready[0]) {
-            e.preventDefault();
-            glassOpenMergeModal(ready[0]);
-          }
         }
       }
     });

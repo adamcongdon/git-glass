@@ -45,6 +45,7 @@ import {
   clearMergeableCache,
   type MergeMethod,
 } from "./lib/mergeable";
+import { getBoard, clearBoardCache } from "./lib/board";
 import {
   normalizeHiddenRepo,
   addHiddenRepo,
@@ -728,6 +729,7 @@ function clearInboxCaches(): void {
   clearNotificationsCache();
   clearWorkCache();
   clearMergeableCache();
+  clearBoardCache();
 }
 
 // GET /api/inbox/hidden — list hard-hidden repos
@@ -934,6 +936,18 @@ app.get("/api/work", async (c) => {
     return c.json(data);
   } catch (err: any) {
     return errorResponse("WORK_ERROR", err.message ?? "Failed to load work", 500);
+  }
+});
+
+app.get("/api/board", async (c) => {
+  const forceParam = c.req.query("force");
+  const force = forceParam === "1" || forceParam === "true";
+  try {
+    const config = await readConfig();
+    const data = await getBoard(config, { force });
+    return c.json(data);
+  } catch (err: any) {
+    return errorResponse("BOARD_ERROR", err.message ?? "Failed to load board", 500);
   }
 });
 

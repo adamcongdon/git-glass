@@ -19,8 +19,9 @@ Agent navigation for the running app. Do not weaken CSRF or validateRepoPath. De
 | Pull / push | Repos row | POST /api/git/pull ; POST /api/git/push | CSRF + validateRepoPath |
 | Delete repo | Repos row | POST /api/git/delete | Triple-validated. Irreversible -- ask Adam |
 | Inbox | Inbox | GET /api/notifications | |
-| Work | Inbox, Work | GET /api/work | |
-| Mergeable | Inbox, Mergeable | GET /api/mergeable ; POST /api/mergeable/merge | Merge is irreversible -- ask |
+| Board | Inbox › Board / Merge order | GET /api/board | Per-repo open MRs + issues with stuck reasons; Merge order is the flat oldest-first list of the same data |
+| Mine | Inbox, Mine | GET /api/work | Old Work mode |
+| Merge (Ready rows) | Inbox › Merge order | GET /api/mergeable ; POST /api/mergeable/merge | Ready flag comes from /api/mergeable; merge is irreversible -- ask |
 | Leaderboard | Leaderboard | GET /api/leaderboard?window=30d | |
 | Activity | Activity | GET /api/activity ; GET /api/activity/day | |
 | Config | Settings | GET/PUT /api/config | GET redacts keys |
